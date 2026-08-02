@@ -5,8 +5,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.CircularProgressIndicator
@@ -16,10 +19,17 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.tv.material3.Button
+import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import dev.jdtech.jellyfin.PlayerRoute
+import dev.jdtech.jellyfin.core.R as CoreR
 import dev.jdtech.jellyfin.core.presentation.dummy.dummyEpisodes
 import dev.jdtech.jellyfin.core.presentation.dummy.dummySeason
 import dev.jdtech.jellyfin.film.presentation.season.SeasonAction
@@ -33,7 +43,7 @@ import java.util.UUID
 @Composable
 fun SeasonScreen(
     seasonId: UUID,
-    navigateToPlayer: (itemId: UUID) -> Unit,
+    navigateToPlayer: (route: PlayerRoute) -> Unit,
     viewModel: SeasonViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
@@ -43,13 +53,21 @@ fun SeasonScreen(
     SeasonScreenLayout(
         state = state,
         onAction = { action ->
-            when (action) {
-                is SeasonAction.NavigateToItem -> navigateToPlayer(action.item.id)
-                else -> Unit
-            }
+            seasonPlaybackRoute(seasonId = seasonId, action = action)?.let(navigateToPlayer)
         },
     )
 }
+
+internal fun seasonPlaybackRoute(seasonId: UUID, action: SeasonAction): PlayerRoute? =
+    when (action) {
+        is SeasonAction.Play ->
+            PlayerRoute.season(
+                itemId = seasonId,
+                startFromBeginning = action.startFromBeginning,
+            )
+        is SeasonAction.NavigateToItem -> PlayerRoute.episode(itemId = action.item.id)
+        else -> null
+    }
 
 @Composable
 private fun SeasonScreenLayout(state: SeasonState, onAction: (SeasonAction) -> Unit) {
@@ -67,6 +85,18 @@ private fun SeasonScreenLayout(state: SeasonState, onAction: (SeasonAction) -> U
                 ) {
                     Text(text = season.name, style = MaterialTheme.typography.displayMedium)
                     Text(text = season.seriesName, style = MaterialTheme.typography.headlineMedium)
+                    Spacer(modifier = Modifier.height(MaterialTheme.spacings.default))
+                    Button(
+                        onClick = { onAction(SeasonAction.Play()) },
+                        enabled = state.episodes.isNotEmpty(),
+                    ) {
+                        Icon(
+                            painter = painterResource(id = CoreR.drawable.ic_play),
+                            contentDescription = null,
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(text = stringResource(id = CoreR.string.play))
+                    }
                 }
                 LazyColumn(
                     contentPadding =

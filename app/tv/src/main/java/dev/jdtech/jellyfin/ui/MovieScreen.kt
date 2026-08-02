@@ -58,7 +58,7 @@ import java.util.UUID
 @Composable
 fun MovieScreen(
     movieId: UUID,
-    navigateToPlayer: (itemId: UUID) -> Unit,
+    navigateToPlayer: (itemId: UUID, startFromBeginning: Boolean) -> Unit,
     viewModel: MovieViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -70,7 +70,7 @@ fun MovieScreen(
         onAction = { action ->
             when (action) {
                 is MovieAction.Play -> {
-                    navigateToPlayer(movieId)
+                    navigateToPlayer(movieId, action.startFromBeginning)
                 }
                 else -> Unit
             }
