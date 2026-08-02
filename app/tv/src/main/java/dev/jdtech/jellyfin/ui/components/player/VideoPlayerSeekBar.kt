@@ -23,13 +23,14 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.MaterialTheme
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
+import dev.jdtech.jellyfin.ui.player.RemoteSeekDirection
+import dev.jdtech.jellyfin.ui.player.remoteSeekDirectionOrNull
 
 @Composable
 fun VideoPlayerSeekBar(
     progress: Float,
     chapterMarkers: List<Float>,
-    onSeekBack: () -> Unit,
-    onSeekForward: () -> Unit,
+    onSeekKeyEvent: (KeyEvent, RemoteSeekDirection) -> Unit,
     onPlayPauseToggle: () -> Unit,
     state: VideoPlayerState,
 ) {
@@ -49,23 +50,15 @@ fun VideoPlayerSeekBar(
                 .height(animatedHeight)
                 .padding(horizontal = 4.dp)
                 .onPreviewKeyEvent { event ->
+                    val keyEvent = event.nativeKeyEvent
+                    val remoteSeekDirection = keyEvent.remoteSeekDirectionOrNull()
+                    if (remoteSeekDirection != null) {
+                        onSeekKeyEvent(keyEvent, remoteSeekDirection)
+                        if (keyEvent.action == KeyEvent.ACTION_DOWN) state.showControls()
+                        return@onPreviewKeyEvent true
+                    }
+
                     when (event.nativeKeyEvent.keyCode) {
-                        KeyEvent.KEYCODE_DPAD_LEFT,
-                        KeyEvent.KEYCODE_SYSTEM_NAVIGATION_LEFT -> {
-                            if (event.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
-                                onSeekBack()
-                                state.showControls()
-                            }
-                            true
-                        }
-                        KeyEvent.KEYCODE_DPAD_RIGHT,
-                        KeyEvent.KEYCODE_SYSTEM_NAVIGATION_RIGHT -> {
-                            if (event.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
-                                onSeekForward()
-                                state.showControls()
-                            }
-                            true
-                        }
                         KeyEvent.KEYCODE_DPAD_CENTER,
                         KeyEvent.KEYCODE_ENTER,
                         KeyEvent.KEYCODE_NUMPAD_ENTER -> {
@@ -122,8 +115,7 @@ fun VideoPlayerSeekBarPreview() {
         VideoPlayerSeekBar(
             progress = 0.4f,
             chapterMarkers = listOf(0.2f, 0.7f),
-            onSeekBack = {},
-            onSeekForward = {},
+            onSeekKeyEvent = { _, _ -> },
             onPlayPauseToggle = {},
             state = rememberVideoPlayerState(),
         )

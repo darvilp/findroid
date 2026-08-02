@@ -25,6 +25,7 @@ import androidx.tv.material3.Text
 import dev.jdtech.jellyfin.core.R as CoreR
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
+import dev.jdtech.jellyfin.ui.player.RemoteSeekDirection
 
 @Composable
 fun VideoPlayerSeeker(
@@ -32,8 +33,7 @@ fun VideoPlayerSeeker(
     state: VideoPlayerState,
     isPlaying: Boolean,
     onPlayPauseToggle: (Boolean) -> Unit,
-    onSeekBack: () -> Unit,
-    onSeekForward: () -> Unit,
+    onSeekKeyEvent: (KeyEvent, RemoteSeekDirection) -> Unit,
     onNavigateDown: (() -> Unit)? = null,
     contentProgress: Long,
     contentDuration: Long,
@@ -96,8 +96,7 @@ fun VideoPlayerSeeker(
             VideoPlayerSeekBar(
                 progress = playbackProgress(contentProgress, contentDuration),
                 chapterMarkers = chapterMarkers,
-                onSeekBack = onSeekBack,
-                onSeekForward = onSeekForward,
+                onSeekKeyEvent = onSeekKeyEvent,
                 onPlayPauseToggle = { onPlayPauseToggle(!isPlaying) },
                 state = state,
             )
@@ -162,8 +161,7 @@ private fun VideoPlayerSeekerPreview() {
             state = rememberVideoPlayerState(),
             isPlaying = false,
             onPlayPauseToggle = {},
-            onSeekBack = {},
-            onSeekForward = {},
+            onSeekKeyEvent = { _, _ -> },
             contentProgress = 471_000L,
             contentDuration = 1_420_000L,
             chapterMarkers = listOf(0.2f, 0.7f),
