@@ -15,6 +15,7 @@ fun VideoPlayerMediaButton(
     icon: Painter,
     state: VideoPlayerState,
     contentDescription: String,
+    enabled: Boolean = true,
     onClick: () -> Unit = {},
 ) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -25,6 +26,7 @@ fun VideoPlayerMediaButton(
     }
 
     IconButton(
+        enabled = enabled,
         onClick = {
             state.showControls()
             onClick()

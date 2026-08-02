@@ -51,7 +51,8 @@ import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import dev.jdtech.jellyfin.core.R
 import dev.jdtech.jellyfin.models.FindroidSegment
-import dev.jdtech.jellyfin.player.core.domain.models.PlayerChapter
+import dev.jdtech.jellyfin.player.local.domain.ChapterNavigationDirection
+import dev.jdtech.jellyfin.player.local.domain.ChapterNavigationState
 import dev.jdtech.jellyfin.player.local.presentation.PlayerViewModel
 import dev.jdtech.jellyfin.presentation.theme.spacings
 import dev.jdtech.jellyfin.ui.components.player.VideoPlayerControlsLayout
@@ -67,6 +68,7 @@ import dev.jdtech.jellyfin.ui.dialogs.VideoPlayerTrackSelectorDialog
 import dev.jdtech.jellyfin.ui.player.RemoteSeekController
 import dev.jdtech.jellyfin.ui.player.RemoteSeekDirection
 import dev.jdtech.jellyfin.ui.player.RemoteSeekPlayback
+import dev.jdtech.jellyfin.ui.player.chapterRemoteCommand
 import dev.jdtech.jellyfin.ui.player.remoteSeekDirectionOrNull
 import java.util.UUID
 import kotlinx.coroutines.delay
@@ -153,6 +155,7 @@ fun PlayerScreen(
     var dismissedSkipSegment by remember { mutableStateOf<FindroidSegment?>(null) }
     var skipButtonFocused by remember { mutableStateOf(false) }
     val segment = uiState.currentSegment
+    val chapterNavigation = viewModel.chapterNavigationState(currentPosition)
 
     LaunchedEffect(segment) {
         if (segment == null) dismissedSkipSegment = null
@@ -184,6 +187,23 @@ fun PlayerScreen(
         }
     }
 
+    var chapterActionsAvailable by remember {
+        mutableStateOf(chapterNavigation.hasMeaningfulChapters)
+    }
+    LaunchedEffect(chapterNavigation.hasMeaningfulChapters) {
+        val chapterActionsRemoved =
+            chapterActionsAvailable && !chapterNavigation.hasMeaningfulChapters
+        chapterActionsAvailable = chapterNavigation.hasMeaningfulChapters
+        if (
+            chapterActionsRemoved &&
+                selectedTrackType == null &&
+                videoPlayerState.mode == VideoPlayerOverlayMode.Controls
+        ) {
+            delay(50L)
+            controlsFocusRequester.requestFocus()
+        }
+    }
+
     BackHandler(
         enabled =
             selectedTrackType != null ||
@@ -203,17 +223,29 @@ fun PlayerScreen(
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier =
+            Modifier.fillMaxSize()
+                .playerDPadEvents(
+                    player = viewModel.player,
+                    videoPlayerState = videoPlayerState,
+                    remoteSeekController = remoteSeekController,
+                    chapterNavigation = viewModel::chapterNavigationState,
+                    modalActive = selectedTrackType != null,
+                    skipPromptFocused = skipButtonFocused,
+                    onChapterCommand = { direction ->
+                        when (direction) {
+                            ChapterNavigationDirection.Previous ->
+                                viewModel.seekToPreviousChapter()
+                            ChapterNavigationDirection.Next -> viewModel.seekToNextChapter()
+                        }
+                    },
+                )
+    ) {
         Box(
             modifier =
                 Modifier.fillMaxSize()
                     .focusRequester(rootFocusRequester)
-                    .playerDPadEvents(
-                        player = viewModel.player,
-                        videoPlayerState = videoPlayerState,
-                        remoteSeekController = remoteSeekController,
-                        skipPromptFocused = skipButtonFocused,
-                    )
                     .focusable()
         ) {
             AndroidView(
@@ -256,7 +288,7 @@ fun PlayerScreen(
                         title = uiState.currentItemTitle,
                         isPlaying = isPlaying,
                         contentCurrentPosition = currentPosition,
-                        chapters = uiState.currentChapters,
+                        chapterNavigation = chapterNavigation,
                         showChapterMarkers = viewModel.chapterMarkersEnabled,
                         player = viewModel.player,
                         state = videoPlayerState,
@@ -267,6 +299,8 @@ fun PlayerScreen(
                         restartAvailable =
                             viewModel.isRestartCurrentItemAvailable(currentPosition),
                         onRestart = viewModel::restartCurrentItem,
+                        onPreviousChapter = viewModel::seekToPreviousChapter,
+                        onNextChapter = viewModel::seekToNextChapter,
                         onSelectAudio = { selectedTrackType = C.TRACK_TYPE_AUDIO },
                         onSelectSubtitles = { selectedTrackType = C.TRACK_TYPE_TEXT },
                     )
@@ -334,7 +368,7 @@ private fun VideoPlayerControls(
     title: String,
     isPlaying: Boolean,
     contentCurrentPosition: Long,
-    chapters: List<PlayerChapter>,
+    chapterNavigation: ChapterNavigationState,
     showChapterMarkers: Boolean,
     player: Player,
     state: VideoPlayerState,
@@ -344,6 +378,8 @@ private fun VideoPlayerControls(
     remoteSeekController: RemoteSeekController,
     restartAvailable: Boolean,
     onRestart: () -> Unit,
+    onPreviousChapter: () -> Unit,
+    onNextChapter: () -> Unit,
     onSelectAudio: () -> Unit,
     onSelectSubtitles: () -> Unit,
 ) {
@@ -352,7 +388,10 @@ private fun VideoPlayerControls(
     }
     val chapterMarkers =
         if (showChapterMarkers) {
-            chapterMarkerProgress(chapters.map { it.startPosition }, player.duration)
+            chapterMarkerProgress(
+                chapterNavigation.chapters.map { it.startPosition },
+                player.duration,
+            )
         } else {
             emptyList()
         }
@@ -399,6 +438,22 @@ private fun VideoPlayerControls(
                             focusRequester.requestFocus()
                             onRestart()
                         },
+                    )
+                }
+                if (chapterNavigation.hasMeaningfulChapters) {
+                    VideoPlayerMediaButton(
+                        icon = painterResource(id = R.drawable.ic_skip_back),
+                        state = state,
+                        contentDescription = stringResource(id = R.string.previous_chapter),
+                        enabled = chapterNavigation.previousChapter != null,
+                        onClick = onPreviousChapter,
+                    )
+                    VideoPlayerMediaButton(
+                        icon = painterResource(id = R.drawable.ic_skip_forward),
+                        state = state,
+                        contentDescription = stringResource(id = R.string.next_chapter),
+                        enabled = chapterNavigation.nextChapter != null,
+                        onClick = onNextChapter,
                     )
                 }
                 VideoPlayerMediaButton(
@@ -485,9 +540,31 @@ private fun Modifier.playerDPadEvents(
     player: Player,
     videoPlayerState: VideoPlayerState,
     remoteSeekController: RemoteSeekController,
+    chapterNavigation: () -> ChapterNavigationState,
+    modalActive: Boolean,
     skipPromptFocused: Boolean,
+    onChapterCommand: (ChapterNavigationDirection) -> Unit,
 ): Modifier =
     onPreviewKeyEvent { event ->
+        val keyEvent = event.nativeKeyEvent
+        val chapterCommand =
+            chapterRemoteCommand(
+                keyCode = keyEvent.keyCode,
+                modalActive = modalActive,
+                navigation = chapterNavigation(),
+            )
+        if (chapterCommand != null) {
+            if (keyEvent.action == KeyEvent.ACTION_DOWN && keyEvent.repeatCount == 0) {
+                onChapterCommand(chapterCommand)
+                if (videoPlayerState.mode == VideoPlayerOverlayMode.Controls) {
+                    videoPlayerState.showControls()
+                } else {
+                    videoPlayerState.showPeek()
+                }
+            }
+            return@onPreviewKeyEvent true
+        }
+
         if (
             !playerRootOwnsPlaybackKeys(
                 overlayMode = videoPlayerState.mode,
@@ -497,7 +574,6 @@ private fun Modifier.playerDPadEvents(
             return@onPreviewKeyEvent false
         }
 
-        val keyEvent = event.nativeKeyEvent
         val remoteSeekDirection = keyEvent.remoteSeekDirectionOrNull()
         if (remoteSeekDirection != null) {
             player.handleRemoteSeekKeyEvent(

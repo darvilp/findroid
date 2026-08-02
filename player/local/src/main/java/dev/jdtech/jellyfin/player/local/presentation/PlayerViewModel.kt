@@ -27,6 +27,10 @@ import dev.jdtech.jellyfin.player.core.domain.models.Trickplay
 import dev.jdtech.jellyfin.player.core.domain.models.findTrack
 import dev.jdtech.jellyfin.player.core.domain.models.withSelectedTrack
 import dev.jdtech.jellyfin.player.local.R
+import dev.jdtech.jellyfin.player.local.domain.ChapterNavigationController
+import dev.jdtech.jellyfin.player.local.domain.ChapterNavigationDirection
+import dev.jdtech.jellyfin.player.local.domain.ChapterNavigationState
+import dev.jdtech.jellyfin.player.local.domain.ChapterSeekTarget
 import dev.jdtech.jellyfin.player.local.domain.MediaSegmentAutoSkipMode
 import dev.jdtech.jellyfin.player.local.domain.MediaSegmentPlayback
 import dev.jdtech.jellyfin.player.local.domain.MediaSegmentPlaybackDecision
@@ -105,6 +109,7 @@ constructor(
     private var playbackPosition: Long = savedStateHandle["position"] ?: 0
     private val mediaSegmentPlayback = MediaSegmentPlayback()
     private val playbackRestartController = PlaybackRestartController()
+    private val chapterNavigationController = ChapterNavigationController()
 
     // Segments preferences
     var segmentsSkipButton: Boolean = false
@@ -359,13 +364,14 @@ constructor(
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
         Timber.d("Playing MediaItem: ${mediaItem?.mediaId}")
         savedStateHandle["mediaItemIndex"] = player.currentMediaItemIndex
-        mediaItem?.mediaId?.let { mediaId ->
-            beginPlaybackPass(itemId = UUID.fromString(mediaId))
-        }
+        chapterNavigationController.reset()
+        _uiState.update { it.copy(currentSegment = null, currentChapters = emptyList()) }
+        val transitionedMediaId = mediaItem?.mediaId ?: return
+        beginPlaybackPass(itemId = UUID.fromString(transitionedMediaId))
         viewModelScope.launch {
             try {
                 items
-                    .first { it.itemId.toString() == player.currentMediaItem?.mediaId }
+                    .first { it.itemId.toString() == transitionedMediaId }
                     .let { item ->
                         val itemTitle =
                             if (item.parentIndexNumber != null && item.indexNumber != null) {
@@ -377,6 +383,7 @@ constructor(
                             } else {
                                 item.name
                             }
+                        if (player.currentMediaItem?.mediaId != transitionedMediaId) return@launch
                         _uiState.update {
                             it.copy(
                                 currentItemTitle = itemTitle,
@@ -448,6 +455,13 @@ constructor(
                 player.play()
             }
         }
+    }
+
+    @Suppress("OVERRIDE_DEPRECATION")
+    override fun onPositionDiscontinuity(reason: Int) {
+        chapterNavigationController.onPositionDiscontinuity(
+            isSeek = reason == Player.DISCONTINUITY_REASON_SEEK
+        )
     }
 
     override fun onPlaybackStateChanged(state: Int) {
@@ -693,76 +707,21 @@ constructor(
         }
     }
 
-    /**
-     * Get chapters of current item
-     *
-     * @return list of [PlayerChapter]
-     */
-    private fun getChapters(): List<PlayerChapter> {
-        return uiState.value.currentChapters
-    }
+    fun chapterNavigationState(
+        currentPositionMs: Long = player.currentPosition
+    ): ChapterNavigationState =
+        chapterNavigationController.state(
+            chapters = uiState.value.currentChapters,
+            currentPositionMs = currentPositionMs,
+            durationMs = player.duration.takeIf { it > 0L },
+        )
 
-    /**
-     * Get the index of the current chapter
-     *
-     * @return the index of the current chapter
-     */
-    private fun getCurrentChapterIndex(): Int? {
-        val chapters = getChapters()
-
-        for (i in chapters.indices.reversed()) {
-            if (chapters[i].startPosition < player.currentPosition) {
-                return i
-            }
-        }
-
-        return null
-    }
-
-    /**
-     * Get the index of the next chapter
-     *
-     * @return the index of the next chapter
-     */
-    private fun getNextChapterIndex(): Int? {
-        val chapters = getChapters()
-        val currentChapterIndex = getCurrentChapterIndex() ?: return null
-
-        return minOf(chapters.size - 1, currentChapterIndex + 1)
-    }
-
-    /**
-     * Get the index of the previous chapter. Only use this for seeking as it will return the
-     * current chapter when player position is more than 5 seconds past the start of the chapter
-     *
-     * @return the index of the previous chapter
-     */
-    private fun getPreviousChapterIndex(): Int? {
-        val chapters = getChapters()
-        val currentChapterIndex = getCurrentChapterIndex() ?: return null
-
-        // Return current chapter when more than 5 seconds past chapter start
-        if (player.currentPosition > chapters[currentChapterIndex].startPosition + 5000L) {
-            return currentChapterIndex
-        }
-
-        return maxOf(0, currentChapterIndex - 1)
-    }
-
-    fun isLastChapter(): Boolean =
-        getChapters().let { chapters -> getCurrentChapterIndex() == chapters.size - 1 }
-
-    /**
-     * Seek to chapter
-     *
-     * @param [chapterIndex] the index of the chapter to seek to
-     * @return the [PlayerChapter] which has been sought to
-     */
-    private fun seekToChapter(chapterIndex: Int): PlayerChapter? {
-        return getChapters().getOrNull(chapterIndex)?.also { chapter ->
-            player.seekTo(chapter.startPosition)
-        }
-    }
+    private fun seekToChapter(direction: ChapterNavigationDirection): PlayerChapter? =
+        chapterNavigationController.seek(
+            direction = direction,
+            navigation = chapterNavigationState(),
+            target = ChapterSeekTarget { positionMs -> player.seekTo(positionMs) },
+        )
 
     /**
      * Seek to the next chapter
@@ -770,7 +729,7 @@ constructor(
      * @return the [PlayerChapter] which has been sought to
      */
     fun seekToNextChapter(): PlayerChapter? {
-        return getNextChapterIndex()?.let { seekToChapter(it) }
+        return seekToChapter(ChapterNavigationDirection.Next)
     }
 
     /**
@@ -780,7 +739,7 @@ constructor(
      * @return the [PlayerChapter] which has been sought to
      */
     fun seekToPreviousChapter(): PlayerChapter? {
-        return getPreviousChapterIndex()?.let { seekToChapter(it) }
+        return seekToChapter(ChapterNavigationDirection.Previous)
     }
 
     override fun onIsPlayingChanged(isPlaying: Boolean) {
