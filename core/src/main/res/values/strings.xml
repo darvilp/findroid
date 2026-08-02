@@ -97,6 +97,8 @@
     <string name="privacy_policy_notice">By using Findroid you agree with the <a href='https://raw.githubusercontent.com/jarnedemeulemeester/findroid/main/PRIVACY'>Privacy Policy</a> which states that we do not collect any data</string>
     <string name="live_tv">Live TV</string>
     <string name="play">Play</string>
+    <string name="play_from_beginning">Play from beginning</string>
+    <string name="restart_current_item">Restart current item</string>
     <string name="watch_trailer">Watch trailer</string>
     <string name="mark_as_played">Mark as played</string>
     <string name="unmark_as_played">Unmark as played</string>

@@ -14,6 +14,7 @@ import androidx.tv.material3.IconButton
 fun VideoPlayerMediaButton(
     icon: Painter,
     state: VideoPlayerState,
+    contentDescription: String,
     onClick: () -> Unit = {},
 ) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -30,6 +31,6 @@ fun VideoPlayerMediaButton(
         },
         interactionSource = interactionSource,
     ) {
-        Icon(painter = icon, contentDescription = null)
+        Icon(painter = icon, contentDescription = contentDescription)
     }
 }

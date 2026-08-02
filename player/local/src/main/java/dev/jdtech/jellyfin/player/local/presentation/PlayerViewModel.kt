@@ -32,6 +32,8 @@ import dev.jdtech.jellyfin.player.local.domain.MediaSegmentPlayback
 import dev.jdtech.jellyfin.player.local.domain.MediaSegmentPlaybackDecision
 import dev.jdtech.jellyfin.player.local.domain.MediaSegmentPlaybackPreferences
 import dev.jdtech.jellyfin.player.local.domain.PlaylistManager
+import dev.jdtech.jellyfin.player.local.domain.PlaybackRestartController
+import dev.jdtech.jellyfin.player.local.domain.PlaybackRestartTarget
 import dev.jdtech.jellyfin.player.local.domain.toTrackOptions
 import dev.jdtech.jellyfin.player.local.mpv.MPVPlayer
 import dev.jdtech.jellyfin.repository.JellyfinRepository
@@ -102,6 +104,7 @@ constructor(
     private var currentMediaItemIndex = savedStateHandle["mediaItemIndex"] ?: 0
     private var playbackPosition: Long = savedStateHandle["position"] ?: 0
     private val mediaSegmentPlayback = MediaSegmentPlayback()
+    private val playbackRestartController = PlaybackRestartController()
 
     // Segments preferences
     var segmentsSkipButton: Boolean = false
@@ -575,6 +578,24 @@ constructor(
     fun beginPlaybackPass() {
         mediaSegmentPlayback.beginPlaybackPass()
         _uiState.update { it.copy(currentSegment = null) }
+    }
+
+    fun isRestartCurrentItemAvailable(currentPositionMs: Long): Boolean =
+        playbackRestartController.isAvailable(
+            currentPositionMs = currentPositionMs,
+            seekBackIncrementMs = player.seekBackIncrement,
+        )
+
+    fun restartCurrentItem() {
+        playbackRestartController.restart(
+            object : PlaybackRestartTarget {
+                override fun beginPlaybackPass() = this@PlayerViewModel.beginPlaybackPass()
+
+                override fun seekTo(positionMs: Long) = player.seekTo(positionMs)
+
+                override fun play() = player.play()
+            }
+        )
     }
 
     private fun beginPlaybackPass(itemId: UUID) {

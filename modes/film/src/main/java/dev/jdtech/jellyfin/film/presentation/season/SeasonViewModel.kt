@@ -3,6 +3,7 @@ package dev.jdtech.jellyfin.film.presentation.season
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dev.jdtech.jellyfin.film.presentation.firstPlayableEpisode
 import dev.jdtech.jellyfin.repository.JellyfinRepository
 import java.util.UUID
 import javax.inject.Inject
@@ -30,7 +31,13 @@ class SeasonViewModel @Inject constructor(private val repository: JellyfinReposi
                         seasonId = seasonId,
                         fields = listOf(ItemFields.OVERVIEW),
                     )
-                _state.emit(_state.value.copy(season = season, episodes = episodes))
+                _state.emit(
+                    _state.value.copy(
+                        season = season,
+                        episodes = episodes,
+                        playbackStartEpisode = firstPlayableEpisode(episodes),
+                    )
+                )
             } catch (e: Exception) {
                 _state.emit(_state.value.copy(error = e))
             }

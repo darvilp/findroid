@@ -26,12 +26,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.window.core.layout.WindowSizeClass
 import dev.jdtech.jellyfin.core.R as CoreR
 import dev.jdtech.jellyfin.core.presentation.downloader.DownloaderState
 import dev.jdtech.jellyfin.core.presentation.dummy.dummyEpisode
+import dev.jdtech.jellyfin.film.presentation.hasMeaningfulSavedProgress
 import dev.jdtech.jellyfin.models.FindroidItem
 import dev.jdtech.jellyfin.models.FindroidMovie
 import dev.jdtech.jellyfin.models.FindroidShow
@@ -52,6 +54,7 @@ fun ItemButtonsBar(
     modifier: Modifier = Modifier,
     downloaderState: DownloaderState? = null,
     canPlay: Boolean = true,
+    playbackStartPositionTicks: Long = item.playbackPositionTicks,
 ) {
     val context = LocalContext.current
     val windowSizeClass = currentWindowAdaptiveInfo().windowSizeClass
@@ -91,11 +94,12 @@ fun ItemButtonsBar(
                         modifier = Modifier.weight(weight = 1f, fill = true),
                         enabled = item.canPlay && canPlay,
                     )
-                    if (item.playbackPositionTicks.div(600000000) > 0) {
+                    if (hasMeaningfulSavedProgress(playbackStartPositionTicks)) {
                         FilledTonalIconButton(onClick = { onPlayClick(true) }) {
                             Icon(
                                 painter = painterResource(CoreR.drawable.ic_rotate_ccw),
-                                contentDescription = null,
+                                contentDescription =
+                                    stringResource(CoreR.string.play_from_beginning),
                             )
                         }
                     }
@@ -112,11 +116,12 @@ fun ItemButtonsBar(
                         onClick = { onPlayClick(false) },
                         enabled = item.canPlay && canPlay,
                     )
-                    if (item.playbackPositionTicks.div(600000000) > 0) {
+                    if (hasMeaningfulSavedProgress(playbackStartPositionTicks)) {
                         FilledTonalIconButton(onClick = { onPlayClick(true) }) {
                             Icon(
                                 painter = painterResource(CoreR.drawable.ic_rotate_ccw),
-                                contentDescription = null,
+                                contentDescription =
+                                    stringResource(CoreR.string.play_from_beginning),
                             )
                         }
                     }

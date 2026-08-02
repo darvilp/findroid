@@ -56,6 +56,7 @@ import androidx.tv.material3.LocalContentColor
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
+import dev.jdtech.jellyfin.PlayerRoute
 import dev.jdtech.jellyfin.core.R as CoreR
 import dev.jdtech.jellyfin.core.presentation.dummy.dummyEpisode
 import dev.jdtech.jellyfin.core.presentation.dummy.dummyShow
@@ -75,7 +76,7 @@ import java.util.UUID
 fun ShowScreen(
     showId: UUID,
     navigateToItem: (item: FindroidItem) -> Unit,
-    navigateToPlayer: (itemId: UUID, startFromBeginning: Boolean) -> Unit,
+    navigateToPlayer: (route: PlayerRoute) -> Unit,
     viewModel: ShowViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
@@ -88,10 +89,8 @@ fun ShowScreen(
     ShowScreenLayout(
         state = state,
         onAction = { action ->
+            showPlaybackRoute(showId = showId, action = action)?.let(navigateToPlayer)
             when (action) {
-                is ShowAction.Play -> {
-                    navigateToPlayer(showId, action.startFromBeginning)
-                }
                 is ShowAction.PlayTrailer -> {
                     try {
                         uriHandler.openUri(action.trailer)
@@ -247,6 +246,29 @@ private fun ShowScreenLayout(state: ShowState, onAction: (ShowAction) -> Unit) {
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text(text = stringResource(id = CoreR.string.play))
+                                }
+                                if (hasMeaningfulPlaybackStart(state)) {
+                                    Button(
+                                        onClick = {
+                                            onAction(ShowAction.Play(startFromBeginning = true))
+                                        },
+                                        enabled = state.playbackStartEpisode != null,
+                                    ) {
+                                        Icon(
+                                            painter =
+                                                painterResource(
+                                                    id = CoreR.drawable.ic_rotate_ccw
+                                                ),
+                                            contentDescription = null,
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text =
+                                                stringResource(
+                                                    id = CoreR.string.play_from_beginning
+                                                )
+                                        )
+                                    }
                                 }
                                 show.trailer?.let { trailerUri ->
                                     Button(

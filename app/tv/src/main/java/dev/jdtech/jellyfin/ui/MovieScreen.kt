@@ -43,6 +43,7 @@ import androidx.tv.material3.LocalContentColor
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
+import dev.jdtech.jellyfin.PlayerRoute
 import dev.jdtech.jellyfin.core.R as CoreR
 import dev.jdtech.jellyfin.core.presentation.dummy.dummyMovie
 import dev.jdtech.jellyfin.core.presentation.dummy.dummyVideoMetadata
@@ -50,6 +51,8 @@ import dev.jdtech.jellyfin.core.presentation.theme.Yellow
 import dev.jdtech.jellyfin.film.presentation.movie.MovieAction
 import dev.jdtech.jellyfin.film.presentation.movie.MovieState
 import dev.jdtech.jellyfin.film.presentation.movie.MovieViewModel
+import dev.jdtech.jellyfin.film.presentation.hasMeaningfulSavedProgress
+import dev.jdtech.jellyfin.presentation.film.moviePlaybackRoute
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
 import dev.jdtech.jellyfin.utils.format
@@ -58,7 +61,7 @@ import java.util.UUID
 @Composable
 fun MovieScreen(
     movieId: UUID,
-    navigateToPlayer: (itemId: UUID, startFromBeginning: Boolean) -> Unit,
+    navigateToPlayer: (route: PlayerRoute) -> Unit,
     viewModel: MovieViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -68,12 +71,7 @@ fun MovieScreen(
     MovieScreenLayout(
         state = state,
         onAction = { action ->
-            when (action) {
-                is MovieAction.Play -> {
-                    navigateToPlayer(movieId, action.startFromBeginning)
-                }
-                else -> Unit
-            }
+            moviePlaybackRoute(movieId = movieId, action = action)?.let(navigateToPlayer)
             viewModel.onAction(action)
         },
     )
@@ -186,6 +184,20 @@ private fun MovieScreenLayout(state: MovieState, onAction: (MovieAction) -> Unit
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(text = stringResource(id = CoreR.string.play))
+                        }
+                        if (hasMeaningfulSavedProgress(movie.playbackPositionTicks)) {
+                            Button(
+                                onClick = {
+                                    onAction(MovieAction.Play(startFromBeginning = true))
+                                }
+                            ) {
+                                Icon(
+                                    painter = painterResource(id = CoreR.drawable.ic_rotate_ccw),
+                                    contentDescription = null,
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(text = stringResource(id = CoreR.string.play_from_beginning))
+                            }
                         }
                         movie.trailer?.let { trailerUri ->
                             Button(onClick = { onAction(MovieAction.PlayTrailer(trailerUri)) }) {

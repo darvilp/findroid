@@ -8,6 +8,7 @@ import dev.jdtech.jellyfin.models.FindroidShow
 data class ShowState(
     val show: FindroidShow? = null,
     val nextUp: FindroidEpisode? = null,
+    val playbackStartEpisode: FindroidEpisode? = nextUp,
     val seasons: List<FindroidSeason> = emptyList(),
     val actors: List<FindroidItemPerson> = emptyList(),
     val director: FindroidItemPerson? = null,

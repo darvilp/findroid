@@ -1,6 +1,5 @@
 package dev.jdtech.jellyfin.presentation.film
 
-import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -40,7 +39,6 @@ import androidx.compose.ui.unit.dp
 import androidx.core.graphics.toColorInt
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import dev.jdtech.jellyfin.PlayerActivity
 import dev.jdtech.jellyfin.core.R as CoreR
 import dev.jdtech.jellyfin.core.presentation.dummy.dummyShow
 import dev.jdtech.jellyfin.film.presentation.show.ShowAction
@@ -61,7 +59,6 @@ import dev.jdtech.jellyfin.presentation.theme.spacings
 import dev.jdtech.jellyfin.presentation.utils.rememberSafePadding
 import dev.jdtech.jellyfin.utils.getShowDateString
 import java.util.UUID
-import org.jellyfin.sdk.model.api.BaseItemKind
 
 @Composable
 fun ShowScreen(
@@ -84,10 +81,7 @@ fun ShowScreen(
         onAction = { action ->
             when (action) {
                 is ShowAction.Play -> {
-                    val intent = Intent(context, PlayerActivity::class.java)
-                    intent.putExtra("itemId", showId.toString())
-                    intent.putExtra("itemKind", BaseItemKind.SERIES.serialName)
-                    context.startActivity(intent)
+                    context.startActivity(showPlaybackActivityRequest(showId, action).toIntent(context))
                 }
                 is ShowAction.PlayTrailer -> {
                     try {
@@ -209,6 +203,8 @@ private fun ShowScreenLayout(state: ShowState, onAction: (ShowAction) -> Unit) {
                         onDownloadDeleteClick = {},
                         modifier = Modifier.fillMaxWidth(),
                         canPlay = state.seasons.isNotEmpty(),
+                        playbackStartPositionTicks =
+                            state.playbackStartEpisode?.playbackPositionTicks ?: 0L,
                     )
                     Spacer(Modifier.height(MaterialTheme.spacings.small))
                     OverviewText(text = show.overview, maxCollapsedLines = 3)

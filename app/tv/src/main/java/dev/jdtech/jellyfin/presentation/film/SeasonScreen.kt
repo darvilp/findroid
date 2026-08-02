@@ -97,6 +97,22 @@ private fun SeasonScreenLayout(state: SeasonState, onAction: (SeasonAction) -> U
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(text = stringResource(id = CoreR.string.play))
                     }
+                    if (hasMeaningfulPlaybackStart(state)) {
+                        Spacer(modifier = Modifier.height(MaterialTheme.spacings.small))
+                        Button(
+                            onClick = {
+                                onAction(SeasonAction.Play(startFromBeginning = true))
+                            },
+                            enabled = state.playbackStartEpisode != null,
+                        ) {
+                            Icon(
+                                painter = painterResource(id = CoreR.drawable.ic_rotate_ccw),
+                                contentDescription = null,
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(text = stringResource(id = CoreR.string.play_from_beginning))
+                        }
+                    }
                 }
                 LazyColumn(
                     contentPadding =
