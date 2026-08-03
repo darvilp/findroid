@@ -76,7 +76,6 @@ fun MainScreen(
 }
 
 enum class TabDestination(@param:DrawableRes val icon: Int, @param:StringRes val label: Int) {
-    Search(CoreR.drawable.ic_search, CoreR.string.search),
     Home(CoreR.drawable.ic_home, CoreR.string.title_home),
     Libraries(CoreR.drawable.ic_library, CoreR.string.libraries),
     // LiveTV(CoreR.drawable.ic_tv, CoreR.string.live_tv)
@@ -91,7 +90,9 @@ private fun MainScreenLayout(
     navigateToShow: (itemId: UUID) -> Unit,
     navigateToPlayer: (itemId: UUID) -> Unit,
 ) {
-    var focusedTabIndex by rememberSaveable { mutableIntStateOf(1) }
+    var focusedTabIndex by rememberSaveable {
+        mutableIntStateOf(TabDestination.entries.indexOf(TabDestination.Home))
+    }
     var activeTabIndex by rememberSaveable { mutableIntStateOf(focusedTabIndex) }
 
     var isLoading by remember { mutableStateOf(false) }
@@ -184,8 +185,8 @@ private fun MainScreenLayout(
                 ProfileButton(user = user, onClick = { navigateToSettings() })
             }
         }
-        when (activeTabIndex) {
-            1 -> {
+        when (TabDestination.entries[activeTabIndex]) {
+            TabDestination.Home -> {
                 HomeScreen(
                     navigateToMovie = navigateToMovie,
                     navigateToShow = navigateToShow,
@@ -193,7 +194,7 @@ private fun MainScreenLayout(
                     isLoading = { isLoading = it },
                 )
             }
-            2 -> {
+            TabDestination.Libraries -> {
                 MediaScreen(navigateToLibrary = navigateToLibrary, isLoading = { isLoading = it })
             }
         }
