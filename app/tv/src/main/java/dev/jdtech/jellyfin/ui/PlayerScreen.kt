@@ -499,27 +499,21 @@ private fun SkipButton(
                             return@onPreviewKeyEvent true
                         }
 
-                        when (keyEvent.keyCode) {
-                            KeyEvent.KEYCODE_DPAD_UP,
-                            KeyEvent.KEYCODE_SYSTEM_NAVIGATION_UP,
-                            KeyEvent.KEYCODE_DPAD_DOWN,
-                            KeyEvent.KEYCODE_SYSTEM_NAVIGATION_DOWN -> {
-                                val direction = keyEvent.playerFocusDirectionOrNull()
-                                val destination =
-                                    direction?.let {
-                                        playerFocusDestination(
-                                            source = PlayerFocusTarget.SkipPrompt,
-                                            direction = it,
-                                            skipPromptAvailable = true,
-                                        )
-                                    }
-                                if (keyEvent.action == KeyEvent.ACTION_DOWN && destination != null) {
-                                    onNavigateFocus(destination)
-                                }
-                                true
+                        val focusDirection = keyEvent.playerFocusDirectionOrNull()
+                        if (focusDirection != null) {
+                            val destination =
+                                playerFocusDestination(
+                                    source = PlayerFocusTarget.SkipPrompt,
+                                    direction = focusDirection,
+                                    skipPromptAvailable = true,
+                                )
+                            if (keyEvent.action == KeyEvent.ACTION_DOWN && destination != null) {
+                                onNavigateFocus(destination)
                             }
-                            else -> false
+                            return@onPreviewKeyEvent true
                         }
+
+                        false
                     },
             glow =
                 ButtonDefaults.glow(
