@@ -75,7 +75,7 @@ import java.util.UUID
 fun ShowScreen(
     showId: UUID,
     navigateToItem: (item: FindroidItem) -> Unit,
-    navigateToPlayer: (itemId: UUID) -> Unit,
+    navigateToPlayer: (itemId: UUID, startFromBeginning: Boolean) -> Unit,
     viewModel: ShowViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
@@ -90,7 +90,7 @@ fun ShowScreen(
         onAction = { action ->
             when (action) {
                 is ShowAction.Play -> {
-                    navigateToPlayer(showId)
+                    navigateToPlayer(showId, action.startFromBeginning)
                 }
                 is ShowAction.PlayTrailer -> {
                     try {

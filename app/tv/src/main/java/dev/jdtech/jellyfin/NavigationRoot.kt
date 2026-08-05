@@ -71,7 +71,43 @@ data class LibraryRoute(
 
 @Serializable data class SeasonRoute(val seasonId: String)
 
-@Serializable data class PlayerRoute(val itemId: String, val itemKind: String)
+@ConsistentCopyVisibility
+@Serializable
+data class PlayerRoute private constructor(
+    val itemId: String,
+    val itemKind: String,
+    val startFromBeginning: Boolean = false,
+) {
+    companion object {
+        fun movie(itemId: UUID, startFromBeginning: Boolean = false) =
+            PlayerRoute(
+                itemId = itemId.toString(),
+                itemKind = BaseItemKind.MOVIE.serialName,
+                startFromBeginning = startFromBeginning,
+            )
+
+        fun series(itemId: UUID, startFromBeginning: Boolean = false) =
+            PlayerRoute(
+                itemId = itemId.toString(),
+                itemKind = BaseItemKind.SERIES.serialName,
+                startFromBeginning = startFromBeginning,
+            )
+
+        fun season(itemId: UUID, startFromBeginning: Boolean = false) =
+            PlayerRoute(
+                itemId = itemId.toString(),
+                itemKind = BaseItemKind.SEASON.serialName,
+                startFromBeginning = startFromBeginning,
+            )
+
+        fun episode(itemId: UUID, startFromBeginning: Boolean = false) =
+            PlayerRoute(
+                itemId = itemId.toString(),
+                itemKind = BaseItemKind.EPISODE.serialName,
+                startFromBeginning = startFromBeginning,
+            )
+    }
+}
 
 @Serializable data object SettingsRoute
 
@@ -157,10 +193,8 @@ fun NavigationRoot(
                     navController.navigate(MovieRoute(itemId.toString()))
                 },
                 navigateToShow = { itemId -> navController.navigate(ShowRoute(itemId.toString())) },
-                navigateToPlayer = { itemId, itemKind ->
-                    navController.navigate(
-                        PlayerRoute(itemId = itemId.toString(), itemKind = itemKind.serialName)
-                    )
+                navigateToPlayer = { itemId ->
+                    navController.navigate(PlayerRoute.episode(itemId = itemId))
                 },
             )
         }
@@ -189,11 +223,11 @@ fun NavigationRoot(
             val route: MovieRoute = backStackEntry.toRoute()
             MovieScreen(
                 movieId = UUID.fromString(route.itemId),
-                navigateToPlayer = { itemId ->
+                navigateToPlayer = { itemId, startFromBeginning ->
                     navController.navigate(
-                        PlayerRoute(
-                            itemId = itemId.toString(),
-                            itemKind = BaseItemKind.MOVIE.serialName,
+                        PlayerRoute.movie(
+                            itemId = itemId,
+                            startFromBeginning = startFromBeginning,
                         )
                     )
                 },
@@ -210,11 +244,11 @@ fun NavigationRoot(
                         }
                     }
                 },
-                navigateToPlayer = { itemId ->
+                navigateToPlayer = { itemId, startFromBeginning ->
                     navController.navigate(
-                        PlayerRoute(
-                            itemId = itemId.toString(),
-                            itemKind = BaseItemKind.SERIES.serialName,
+                        PlayerRoute.series(
+                            itemId = itemId,
+                            startFromBeginning = startFromBeginning,
                         )
                     )
                 },
@@ -224,14 +258,7 @@ fun NavigationRoot(
             val route: SeasonRoute = backStackEntry.toRoute()
             SeasonScreen(
                 seasonId = UUID.fromString(route.seasonId),
-                navigateToPlayer = { itemId ->
-                    navController.navigate(
-                        PlayerRoute(
-                            itemId = itemId.toString(),
-                            itemKind = BaseItemKind.SEASON.serialName,
-                        )
-                    )
-                },
+                navigateToPlayer = { playerRoute -> navController.navigate(playerRoute) },
             )
         }
         composable<PlayerRoute> { backStackEntry ->
@@ -239,7 +266,7 @@ fun NavigationRoot(
             PlayerScreen(
                 itemId = UUID.fromString(route.itemId),
                 itemKind = route.itemKind,
-                startFromBeginning = false,
+                startFromBeginning = route.startFromBeginning,
             )
         }
         composable<SettingsRoute> {
