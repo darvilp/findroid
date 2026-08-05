@@ -166,10 +166,6 @@ class PlayerGestureHelper(
                 }
             }
             in rightmostAreaStart until viewWidth -> {
-                if (activity.viewModel.isLastChapter()) {
-                    playerView.player?.seekToNextMediaItem()
-                    return
-                }
                 activity.viewModel.seekToNextChapter()?.let { chapter -> displayChapter(chapter) }
             }
             else -> return
