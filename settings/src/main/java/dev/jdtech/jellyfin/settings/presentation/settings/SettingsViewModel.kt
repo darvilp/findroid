@@ -467,6 +467,8 @@ class SettingsViewModel @Inject constructor(private val appPreferences: AppPrefe
                                                     nameStringResource =
                                                         R.string
                                                             .pref_player_media_segments_skip_button_duration,
+                                                    supportedDeviceTypes =
+                                                        listOf(DeviceType.PHONE),
                                                     dependencies =
                                                         listOf(
                                                             appPreferences

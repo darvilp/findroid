@@ -13,6 +13,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionOverride
+import androidx.media3.common.Tracks
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
@@ -21,9 +22,14 @@ import dev.jdtech.jellyfin.models.FindroidSegment
 import dev.jdtech.jellyfin.models.FindroidSegmentType
 import dev.jdtech.jellyfin.player.core.domain.models.PlayerChapter
 import dev.jdtech.jellyfin.player.core.domain.models.PlayerItem
+import dev.jdtech.jellyfin.player.core.domain.models.Track
 import dev.jdtech.jellyfin.player.core.domain.models.Trickplay
+import dev.jdtech.jellyfin.player.core.domain.models.findTrack
+import dev.jdtech.jellyfin.player.core.domain.models.withSelectedTrack
 import dev.jdtech.jellyfin.player.local.R
 import dev.jdtech.jellyfin.player.local.domain.PlaylistManager
+import dev.jdtech.jellyfin.player.local.domain.segmentAt
+import dev.jdtech.jellyfin.player.local.domain.toTrackOptions
 import dev.jdtech.jellyfin.player.local.mpv.MPVPlayer
 import dev.jdtech.jellyfin.repository.JellyfinRepository
 import dev.jdtech.jellyfin.settings.domain.AppPreferences
@@ -65,6 +71,8 @@ constructor(
                 currentSkipButtonStringRes = R.string.player_controls_skip_intro,
                 currentTrickplay = null,
                 currentChapters = emptyList(),
+                audioTracks = emptyList(),
+                subtitleTracks = emptyList(),
                 fileLoaded = false,
             )
         )
@@ -79,6 +87,8 @@ constructor(
         val currentSkipButtonStringRes: Int,
         val currentTrickplay: Trickplay?,
         val currentChapters: List<PlayerChapter>,
+        val audioTracks: List<Track>,
+        val subtitleTracks: List<Track>,
         val fileLoaded: Boolean,
     )
 
@@ -97,6 +107,8 @@ constructor(
     var segmentsAutoSkip: Boolean = false
     private var segmentsAutoSkipTypes: Set<String> = emptySet()
     private var segmentsAutoSkipMode: String = "always"
+    val chapterMarkersEnabled: Boolean =
+        appPreferences.getValue(appPreferences.playerChapterMarkers)
 
     var playbackSpeed: Float = 1f
 
@@ -174,6 +186,7 @@ constructor(
 
     fun initializePlayer(itemId: UUID, itemKind: String, startFromBeginning: Boolean) {
         player.addListener(this)
+        updateTrackOptions(player.currentTracks)
 
         viewModelScope.launch {
             val startItem =
@@ -302,11 +315,8 @@ constructor(
 
             val milliSeconds = player.currentPosition
 
-            // Get current segment, - 100 milliseconds to avoid showing button after segment ends
-            val currentSegment =
-                currentMediaItemSegments.find { segment ->
-                    milliSeconds in segment.startTicks..<(segment.endTicks - 100L)
-                }
+            // Avoid showing a stale button during the final 100 ms of a segment.
+            val currentSegment = currentMediaItemSegments.segmentAt(milliSeconds)
 
             if (currentSegment == null) {
                 // Remove button if not pressed and there is no current segment
@@ -344,6 +354,7 @@ constructor(
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
         Timber.d("Playing MediaItem: ${mediaItem?.mediaId}")
         savedStateHandle["mediaItemIndex"] = player.currentMediaItemIndex
+        currentMediaItemSegments = emptyList()
         viewModelScope.launch {
             try {
                 items
@@ -459,29 +470,86 @@ constructor(
         releasePlayer()
     }
 
-    fun switchToTrack(trackType: @C.TrackType Int, index: Int) {
-        // Index -1 equals disable track
-        if (index == -1) {
+    fun currentTrackOptions(trackType: @C.TrackType Int): List<Track> =
+        player.currentTracks.toTrackOptions(trackType)
+
+    /**
+     * Select an exact Media3 group/format pair. Passing two null indices disables the type.
+     * Mismatched, unsupported, or stale identities are rejected without changing the player.
+     */
+    fun switchToTrack(
+        trackType: @C.TrackType Int,
+        groupIndex: Int?,
+        trackIndex: Int?,
+    ): Boolean {
+        if (groupIndex == null && trackIndex == null) {
             player.trackSelectionParameters =
                 player.trackSelectionParameters
                     .buildUpon()
                     .clearOverridesOfType(trackType)
                     .setTrackTypeDisabled(trackType, true)
                     .build()
-        } else {
-            player.trackSelectionParameters =
-                player.trackSelectionParameters
-                    .buildUpon()
-                    .setOverrideForType(
-                        TrackSelectionOverride(
-                            player.currentTracks.groups
-                                .filter { it.type == trackType && it.isSupported }[index]
-                                .mediaTrackGroup,
-                            0,
-                        )
+            updateSelectedTrack(trackType, groupIndex = null, trackIndex = null)
+            return true
+        }
+
+        if (groupIndex == null || trackIndex == null) return false
+        val requestedTrack =
+            currentTrackOptions(trackType).findTrack(trackType, groupIndex, trackIndex)
+                ?: return false
+        if (!requestedTrack.supported) return false
+        val group = player.currentTracks.groups.getOrNull(groupIndex) ?: return false
+        if (
+            group.type != trackType ||
+                trackIndex !in 0 until group.mediaTrackGroup.length ||
+                !group.isTrackSupported(trackIndex)
+        ) {
+            return false
+        }
+
+        player.trackSelectionParameters =
+            player.trackSelectionParameters
+                .buildUpon()
+                .setOverrideForType(
+                    TrackSelectionOverride(group.mediaTrackGroup, trackIndex)
+                )
+                .setTrackTypeDisabled(trackType, false)
+                .build()
+        updateSelectedTrack(trackType, groupIndex, trackIndex)
+        return true
+    }
+
+    override fun onTracksChanged(tracks: Tracks) {
+        updateTrackOptions(tracks)
+    }
+
+    private fun updateTrackOptions(tracks: Tracks) {
+        _uiState.update {
+            it.copy(
+                audioTracks = tracks.toTrackOptions(C.TRACK_TYPE_AUDIO),
+                subtitleTracks = tracks.toTrackOptions(C.TRACK_TYPE_TEXT),
+            )
+        }
+    }
+
+    private fun updateSelectedTrack(
+        trackType: @C.TrackType Int,
+        groupIndex: Int?,
+        trackIndex: Int?,
+    ) {
+        _uiState.update { state ->
+            when (trackType) {
+                C.TRACK_TYPE_AUDIO ->
+                    state.copy(
+                        audioTracks = state.audioTracks.withSelectedTrack(groupIndex, trackIndex)
                     )
-                    .setTrackTypeDisabled(trackType, false)
-                    .build()
+                C.TRACK_TYPE_TEXT ->
+                    state.copy(
+                        subtitleTracks =
+                            state.subtitleTracks.withSelectedTrack(groupIndex, trackIndex)
+                    )
+                else -> state
+            }
         }
     }
 
@@ -492,9 +560,14 @@ constructor(
 
     private suspend fun getSegments(itemId: UUID) {
         try {
-            currentMediaItemSegments = repository.getSegments(itemId)
+            val segments = repository.getSegments(itemId)
+            if (player.currentMediaItem?.mediaId == itemId.toString()) {
+                currentMediaItemSegments = segments
+            }
         } catch (e: Exception) {
-            currentMediaItemSegments = emptyList()
+            if (player.currentMediaItem?.mediaId == itemId.toString()) {
+                currentMediaItemSegments = emptyList()
+            }
             Timber.e(e)
         }
     }
