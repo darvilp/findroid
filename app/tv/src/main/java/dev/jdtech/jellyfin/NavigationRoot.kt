@@ -223,14 +223,7 @@ fun NavigationRoot(
             val route: MovieRoute = backStackEntry.toRoute()
             MovieScreen(
                 movieId = UUID.fromString(route.itemId),
-                navigateToPlayer = { itemId, startFromBeginning ->
-                    navController.navigate(
-                        PlayerRoute.movie(
-                            itemId = itemId,
-                            startFromBeginning = startFromBeginning,
-                        )
-                    )
-                },
+                navigateToPlayer = { playerRoute -> navController.navigate(playerRoute) },
             )
         }
         composable<ShowRoute> { backStackEntry ->
@@ -244,14 +237,7 @@ fun NavigationRoot(
                         }
                     }
                 },
-                navigateToPlayer = { itemId, startFromBeginning ->
-                    navController.navigate(
-                        PlayerRoute.series(
-                            itemId = itemId,
-                            startFromBeginning = startFromBeginning,
-                        )
-                    )
-                },
+                navigateToPlayer = { playerRoute -> navController.navigate(playerRoute) },
             )
         }
         composable<SeasonRoute> { backStackEntry ->

@@ -1,6 +1,5 @@
 package dev.jdtech.jellyfin.presentation.film
 
-import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,7 +33,6 @@ import androidx.compose.ui.tooling.preview.PreviewScreenSizes
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import dev.jdtech.jellyfin.PlayerActivity
 import dev.jdtech.jellyfin.core.presentation.dummy.dummySeason
 import dev.jdtech.jellyfin.film.presentation.season.SeasonAction
 import dev.jdtech.jellyfin.film.presentation.season.SeasonState
@@ -50,7 +48,6 @@ import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
 import dev.jdtech.jellyfin.presentation.utils.rememberSafePadding
 import java.util.UUID
-import org.jellyfin.sdk.model.api.BaseItemKind
 
 @Composable
 fun SeasonScreen(
@@ -71,10 +68,9 @@ fun SeasonScreen(
         onAction = { action ->
             when (action) {
                 is SeasonAction.Play -> {
-                    val intent = Intent(context, PlayerActivity::class.java)
-                    intent.putExtra("itemId", seasonId.toString())
-                    intent.putExtra("itemKind", BaseItemKind.SEASON.serialName)
-                    context.startActivity(intent)
+                    context.startActivity(
+                        seasonPlaybackActivityRequest(seasonId, action).toIntent(context)
+                    )
                 }
                 is SeasonAction.OnBackClick -> navigateBack()
                 is SeasonAction.OnHomeClick -> navigateHome()
@@ -165,6 +161,8 @@ private fun SeasonScreenLayout(state: SeasonState, onAction: (SeasonAction) -> U
                         modifier =
                             Modifier.padding(start = paddingStart, end = paddingEnd).fillMaxWidth(),
                         canPlay = state.episodes.isNotEmpty(),
+                        playbackStartPositionTicks =
+                            state.playbackStartEpisode?.playbackPositionTicks ?: 0L,
                     )
                 }
                 items(items = state.episodes, key = { episode -> episode.id }) { episode ->

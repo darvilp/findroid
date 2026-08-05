@@ -264,6 +264,9 @@ fun PlayerScreen(
                         skipButtonFocusRequester = skipButtonFocusRequester,
                         skipPromptAvailable = segment != null,
                         remoteSeekController = remoteSeekController,
+                        restartAvailable =
+                            viewModel.isRestartCurrentItemAvailable(currentPosition),
+                        onRestart = viewModel::restartCurrentItem,
                         onSelectAudio = { selectedTrackType = C.TRACK_TYPE_AUDIO },
                         onSelectSubtitles = { selectedTrackType = C.TRACK_TYPE_TEXT },
                     )
@@ -339,6 +342,8 @@ private fun VideoPlayerControls(
     skipButtonFocusRequester: FocusRequester,
     skipPromptAvailable: Boolean,
     remoteSeekController: RemoteSeekController,
+    restartAvailable: Boolean,
+    onRestart: () -> Unit,
     onSelectAudio: () -> Unit,
     onSelectSubtitles: () -> Unit,
 ) {
@@ -385,14 +390,27 @@ private fun VideoPlayerControls(
         },
         mediaActions = {
             Row(horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.medium)) {
+                if (restartAvailable) {
+                    VideoPlayerMediaButton(
+                        icon = painterResource(id = R.drawable.ic_rotate_ccw),
+                        state = state,
+                        contentDescription = stringResource(id = R.string.restart_current_item),
+                        onClick = {
+                            focusRequester.requestFocus()
+                            onRestart()
+                        },
+                    )
+                }
                 VideoPlayerMediaButton(
                     icon = painterResource(id = R.drawable.ic_speaker),
                     state = state,
+                    contentDescription = stringResource(id = R.string.audio),
                     onClick = onSelectAudio,
                 )
                 VideoPlayerMediaButton(
                     icon = painterResource(id = R.drawable.ic_closed_caption),
                     state = state,
+                    contentDescription = stringResource(id = R.string.subtitle),
                     onClick = onSelectSubtitles,
                 )
             }
