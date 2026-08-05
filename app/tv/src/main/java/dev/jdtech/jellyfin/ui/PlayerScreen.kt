@@ -63,8 +63,11 @@ import dev.jdtech.jellyfin.ui.components.player.VideoPlayerSeeker
 import dev.jdtech.jellyfin.ui.components.player.VideoPlayerState
 import dev.jdtech.jellyfin.ui.components.player.chapterMarkerProgress
 import dev.jdtech.jellyfin.ui.components.player.rememberVideoPlayerState
-import dev.jdtech.jellyfin.ui.components.player.seekTarget
 import dev.jdtech.jellyfin.ui.dialogs.VideoPlayerTrackSelectorDialog
+import dev.jdtech.jellyfin.ui.player.RemoteSeekController
+import dev.jdtech.jellyfin.ui.player.RemoteSeekDirection
+import dev.jdtech.jellyfin.ui.player.RemoteSeekPlayback
+import dev.jdtech.jellyfin.ui.player.remoteSeekDirectionOrNull
 import java.util.UUID
 import kotlinx.coroutines.delay
 
@@ -112,6 +115,7 @@ fun PlayerScreen(
     }
 
     val videoPlayerState = rememberVideoPlayerState()
+    val remoteSeekController = remember { RemoteSeekController() }
     val rootFocusRequester = remember { FocusRequester() }
     val controlsFocusRequester = remember { FocusRequester() }
     val skipButtonFocusRequester = remember { FocusRequester() }
@@ -207,6 +211,7 @@ fun PlayerScreen(
                     .playerDPadEvents(
                         player = viewModel.player,
                         videoPlayerState = videoPlayerState,
+                        remoteSeekController = remoteSeekController,
                         skipPromptFocused = skipButtonFocused,
                     )
                     .focusable()
@@ -258,6 +263,7 @@ fun PlayerScreen(
                         focusRequester = controlsFocusRequester,
                         skipButtonFocusRequester = skipButtonFocusRequester,
                         skipPromptAvailable = segment != null,
+                        remoteSeekController = remoteSeekController,
                         onSelectAudio = { selectedTrackType = C.TRACK_TYPE_AUDIO },
                         onSelectSubtitles = { selectedTrackType = C.TRACK_TYPE_TEXT },
                     )
@@ -288,13 +294,13 @@ fun PlayerScreen(
                         PlayerFocusTarget.SkipPrompt -> skipButtonFocusRequester.requestFocus()
                     }
                 },
-                onSeekBack = {
-                    viewModel.player.seekByConfiguredIncrement(forward = false)
-                    videoPlayerState.showPeek()
-                },
-                onSeekForward = {
-                    viewModel.player.seekByConfiguredIncrement(forward = true)
-                    videoPlayerState.showPeek()
+                onSeekKeyEvent = { keyEvent, direction ->
+                    viewModel.player.handleRemoteSeekKeyEvent(
+                        remoteSeekController,
+                        keyEvent,
+                        direction,
+                    )
+                    if (keyEvent.action == KeyEvent.ACTION_DOWN) videoPlayerState.showPeek()
                 },
             )
         }
@@ -332,6 +338,7 @@ private fun VideoPlayerControls(
     focusRequester: FocusRequester,
     skipButtonFocusRequester: FocusRequester,
     skipPromptAvailable: Boolean,
+    remoteSeekController: RemoteSeekController,
     onSelectAudio: () -> Unit,
     onSelectSubtitles: () -> Unit,
 ) {
@@ -353,8 +360,9 @@ private fun VideoPlayerControls(
                 state = state,
                 isPlaying = isPlaying,
                 onPlayPauseToggle = onPlayPauseToggle,
-                onSeekBack = { player.seekByConfiguredIncrement(forward = false) },
-                onSeekForward = { player.seekByConfiguredIncrement(forward = true) },
+                onSeekKeyEvent = { keyEvent, direction ->
+                    player.handleRemoteSeekKeyEvent(remoteSeekController, keyEvent, direction)
+                },
                 onNavigateDown =
                     if (
                         playerFocusDestination(
@@ -399,8 +407,7 @@ private fun SkipButton(
     skipButtonFocusRequester: FocusRequester,
     onFocusChanged: (Boolean) -> Unit,
     onNavigateFocus: (PlayerFocusTarget) -> Unit,
-    onSeekBack: () -> Unit,
-    onSeekForward: () -> Unit,
+    onSeekKeyEvent: (KeyEvent, RemoteSeekDirection) -> Unit,
 ) {
     Box(
         modifier = Modifier.fillMaxSize().padding(MaterialTheme.spacings.large).zIndex(1f),
@@ -413,17 +420,13 @@ private fun SkipButton(
                     .onFocusChanged { onFocusChanged(it.isFocused) }
                     .onPreviewKeyEvent { event ->
                         val keyEvent = event.nativeKeyEvent
+                        val remoteSeekDirection = keyEvent.remoteSeekDirectionOrNull()
+                        if (remoteSeekDirection != null) {
+                            onSeekKeyEvent(keyEvent, remoteSeekDirection)
+                            return@onPreviewKeyEvent true
+                        }
+
                         when (keyEvent.keyCode) {
-                            KeyEvent.KEYCODE_DPAD_LEFT,
-                            KeyEvent.KEYCODE_SYSTEM_NAVIGATION_LEFT -> {
-                                if (keyEvent.action == KeyEvent.ACTION_DOWN) onSeekBack()
-                                true
-                            }
-                            KeyEvent.KEYCODE_DPAD_RIGHT,
-                            KeyEvent.KEYCODE_SYSTEM_NAVIGATION_RIGHT -> {
-                                if (keyEvent.action == KeyEvent.ACTION_DOWN) onSeekForward()
-                                true
-                            }
                             KeyEvent.KEYCODE_DPAD_UP,
                             KeyEvent.KEYCODE_SYSTEM_NAVIGATION_UP,
                             KeyEvent.KEYCODE_DPAD_DOWN,
@@ -463,6 +466,7 @@ private fun SkipButton(
 private fun Modifier.playerDPadEvents(
     player: Player,
     videoPlayerState: VideoPlayerState,
+    remoteSeekController: RemoteSeekController,
     skipPromptFocused: Boolean,
 ): Modifier =
     onPreviewKeyEvent { event ->
@@ -476,23 +480,18 @@ private fun Modifier.playerDPadEvents(
         }
 
         val keyEvent = event.nativeKeyEvent
+        val remoteSeekDirection = keyEvent.remoteSeekDirectionOrNull()
+        if (remoteSeekDirection != null) {
+            player.handleRemoteSeekKeyEvent(
+                remoteSeekController,
+                keyEvent,
+                remoteSeekDirection,
+            )
+            if (keyEvent.action == KeyEvent.ACTION_DOWN) videoPlayerState.showPeek()
+            return@onPreviewKeyEvent true
+        }
+
         when (keyEvent.keyCode) {
-            KeyEvent.KEYCODE_DPAD_LEFT,
-            KeyEvent.KEYCODE_SYSTEM_NAVIGATION_LEFT -> {
-                if (keyEvent.action == KeyEvent.ACTION_DOWN) {
-                    player.seekByConfiguredIncrement(forward = false)
-                    videoPlayerState.showPeek()
-                }
-                true
-            }
-            KeyEvent.KEYCODE_DPAD_RIGHT,
-            KeyEvent.KEYCODE_SYSTEM_NAVIGATION_RIGHT -> {
-                if (keyEvent.action == KeyEvent.ACTION_DOWN) {
-                    player.seekByConfiguredIncrement(forward = true)
-                    videoPlayerState.showPeek()
-                }
-                true
-            }
             KeyEvent.KEYCODE_DPAD_UP,
             KeyEvent.KEYCODE_SYSTEM_NAVIGATION_UP,
             KeyEvent.KEYCODE_DPAD_DOWN,
@@ -553,13 +552,26 @@ private fun KeyEvent.playerFocusDirectionOrNull(): PlayerFocusDirection? =
         else -> null
     }
 
-private fun Player.seekByConfiguredIncrement(forward: Boolean) {
-    seekTo(
-        seekTarget(
-            positionMs = currentPosition,
-            durationMs = duration,
-            incrementMs = if (forward) seekForwardIncrement else seekBackIncrement,
-            forward = forward,
-        )
-    )
+private fun Player.handleRemoteSeekKeyEvent(
+    controller: RemoteSeekController,
+    keyEvent: KeyEvent,
+    direction: RemoteSeekDirection,
+) {
+    when (keyEvent.action) {
+        KeyEvent.ACTION_DOWN ->
+            seekTo(
+                controller.onKeyDown(
+                    direction = direction,
+                    eventTimeMs = keyEvent.eventTime,
+                    playback =
+                        RemoteSeekPlayback(
+                            positionMs = currentPosition,
+                            durationMs = duration.takeIf { it >= 0L },
+                            seekBackIncrementMs = seekBackIncrement,
+                            seekForwardIncrementMs = seekForwardIncrement,
+                        ),
+                )
+            )
+        KeyEvent.ACTION_UP -> controller.onKeyUp(direction)
+    }
 }
