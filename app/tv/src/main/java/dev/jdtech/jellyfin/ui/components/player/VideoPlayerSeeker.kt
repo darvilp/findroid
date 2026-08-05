@@ -1,7 +1,6 @@
 package dev.jdtech.jellyfin.ui.components.player
 
 import android.view.KeyEvent
-
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
