@@ -1,5 +1,7 @@
 package dev.jdtech.jellyfin.ui
 
+import android.view.KeyEvent
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,7 +24,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
@@ -34,6 +38,8 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaSession
@@ -44,20 +50,22 @@ import androidx.tv.material3.Glow
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import dev.jdtech.jellyfin.core.R
-import dev.jdtech.jellyfin.player.core.domain.models.Track
+import dev.jdtech.jellyfin.models.FindroidSegment
+import dev.jdtech.jellyfin.player.core.domain.models.PlayerChapter
 import dev.jdtech.jellyfin.player.local.presentation.PlayerViewModel
 import dev.jdtech.jellyfin.presentation.theme.spacings
 import dev.jdtech.jellyfin.ui.components.player.VideoPlayerControlsLayout
 import dev.jdtech.jellyfin.ui.components.player.VideoPlayerMediaButton
 import dev.jdtech.jellyfin.ui.components.player.VideoPlayerMediaTitle
 import dev.jdtech.jellyfin.ui.components.player.VideoPlayerOverlay
+import dev.jdtech.jellyfin.ui.components.player.VideoPlayerOverlayMode
 import dev.jdtech.jellyfin.ui.components.player.VideoPlayerSeeker
 import dev.jdtech.jellyfin.ui.components.player.VideoPlayerState
+import dev.jdtech.jellyfin.ui.components.player.chapterMarkerProgress
 import dev.jdtech.jellyfin.ui.components.player.rememberVideoPlayerState
-import dev.jdtech.jellyfin.utils.handleDPadKeyEvents
-import java.util.Locale
+import dev.jdtech.jellyfin.ui.components.player.seekTarget
+import dev.jdtech.jellyfin.ui.dialogs.VideoPlayerTrackSelectorDialog
 import java.util.UUID
-import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.delay
 
 @Composable
@@ -65,17 +73,13 @@ fun PlayerScreen(
     itemId: UUID,
     itemKind: String,
     startFromBeginning: Boolean,
-    // resultRecipient: ResultRecipient<VideoPlayerTrackSelectorDialogDestination,
-    // VideoPlayerTrackSelectorDialogResult>,
 ) {
     val viewModel = hiltViewModel<PlayerViewModel>()
-
     val uiState by viewModel.uiState.collectAsState()
-
     val context = LocalContext.current
     val currentView = LocalView.current
+    val lifecycleOwner = LocalLifecycleOwner.current
 
-    // Keep the screen on while player is show
     DisposableEffect(Unit) {
         currentView.keepScreenOn = true
         onDispose { currentView.keepScreenOn = false }
@@ -83,165 +87,263 @@ fun PlayerScreen(
 
     var lifecycle by remember { mutableStateOf(Lifecycle.Event.ON_CREATE) }
     var mediaSession by remember { mutableStateOf<MediaSession?>(null) }
-    val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             lifecycle = event
-
-            // Handle creation and release of media session
-            when (lifecycle) {
+            when (event) {
                 Lifecycle.Event.ON_STOP -> {
-                    println("ON_STOP")
                     mediaSession?.release()
+                    mediaSession = null
                 }
-
                 Lifecycle.Event.ON_START -> {
-                    println("ON_START")
+                    mediaSession?.release()
                     mediaSession = MediaSession.Builder(context, viewModel.player).build()
                 }
-
-                else -> {}
+                else -> Unit
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
 
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            mediaSession?.release()
+            mediaSession = null
+        }
     }
 
     val videoPlayerState = rememberVideoPlayerState()
+    val rootFocusRequester = remember { FocusRequester() }
+    val controlsFocusRequester = remember { FocusRequester() }
+    val skipButtonFocusRequester = remember { FocusRequester() }
 
     var currentPosition by remember { mutableLongStateOf(0L) }
     var isPlaying by remember { mutableStateOf(viewModel.player.isPlaying) }
-    LaunchedEffect(Unit) {
-        while (true) {
-            delay(300)
-            currentPosition = viewModel.player.currentPosition
-            isPlaying = viewModel.player.isPlaying
-        }
-    }
-
-    // TODO: implement the track selection dialogs
-    /*
-    resultRecipient.onNavResult { result ->
-        when (result) {
-            is NavResult.Canceled -> Unit
-            is NavResult.Value -> {
-                val trackType = result.value.trackType
-                val index = result.value.index
-
-                if (index == -1) {
-                    viewModel.player.trackSelectionParameters = viewModel.player.trackSelectionParameters
-                        .buildUpon()
-                        .clearOverridesOfType(trackType)
-                        .setTrackTypeDisabled(trackType, true)
-                        .build()
-                } else {
-                    viewModel.player.trackSelectionParameters = viewModel.player.trackSelectionParameters
-                        .buildUpon()
-                        .setOverrideForType(
-                            TrackSelectionOverride(viewModel.player.currentTracks.groups[index].mediaTrackGroup, 0),
-                        )
-                        .setTrackTypeDisabled(trackType, false)
-                        .build()
-                }
-            }
-        }
-    }
-     */
-
-    // Media Segments
-    val segment = uiState.currentSegment
-    if (segment != null && !videoPlayerState.controlsVisible) {
-        val skipButtonFocusRequester = remember { FocusRequester() }
-
-        SkipButton(
-            stringRes = uiState.currentSkipButtonStringRes,
-            onClick = { viewModel.skipSegment(segment) },
-            skipButtonFocusRequester = skipButtonFocusRequester,
-        )
-
-        LaunchedEffect(videoPlayerState.controlsVisible) {
-            if (!videoPlayerState.controlsVisible) {
-                skipButtonFocusRequester.requestFocus()
+    var playWhenReady by remember { mutableStateOf(viewModel.player.playWhenReady) }
+    LaunchedEffect(lifecycleOwner, viewModel.player) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                currentPosition = viewModel.player.currentPosition
+                isPlaying = viewModel.player.isPlaying
+                playWhenReady = viewModel.player.playWhenReady
+                delay(300L)
             }
         }
     }
 
-    Box(
-        modifier =
-            Modifier.dPadEvents(exoPlayer = viewModel.player, videoPlayerState = videoPlayerState)
-                .focusable()
+    LaunchedEffect(
+        lifecycleOwner,
+        viewModel.segmentsSkipButton,
+        viewModel.segmentsAutoSkip,
     ) {
-        AndroidView(
-            factory = { context ->
-                PlayerView(context).also { playerView ->
-                    playerView.player = viewModel.player
-                    playerView.useController = false
-                    viewModel.initializePlayer(
-                        itemId = itemId,
-                        itemKind = itemKind,
-                        startFromBeginning = startFromBeginning,
-                    )
-                    playerView.setBackgroundColor(
-                        context.resources.getColor(android.R.color.black, context.theme)
-                    )
+        if (viewModel.segmentsSkipButton || viewModel.segmentsAutoSkip) {
+            lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                while (true) {
+                    viewModel.updateCurrentSegment()
+                    delay(1_000L)
                 }
-            },
-            update = {
-                when (lifecycle) {
-                    Lifecycle.Event.ON_PAUSE -> {
-                        it.onPause()
-                        it.player?.pause()
-                    }
+            }
+        }
+    }
 
-                    Lifecycle.Event.ON_RESUME -> {
-                        it.onResume()
-                    }
+    var selectedTrackType by remember { mutableStateOf<Int?>(null) }
+    var dismissedSkipSegment by remember { mutableStateOf<FindroidSegment?>(null) }
+    var skipButtonFocused by remember { mutableStateOf(false) }
+    val segment = uiState.currentSegment
 
-                    else -> Unit
+    LaunchedEffect(segment) {
+        if (segment == null) dismissedSkipSegment = null
+    }
+
+    val skipPromptMayTakeFocus =
+        segment != null &&
+            segment != dismissedSkipSegment &&
+            selectedTrackType == null &&
+            videoPlayerState.mode != VideoPlayerOverlayMode.Controls
+
+    LaunchedEffect(
+        segment,
+        dismissedSkipSegment,
+        selectedTrackType,
+        videoPlayerState.mode,
+    ) {
+        if (selectedTrackType == null) {
+            when {
+                skipPromptMayTakeFocus -> skipButtonFocusRequester.requestFocus()
+                videoPlayerState.mode == VideoPlayerOverlayMode.Controls -> {
+                    // Let AnimatedVisibility place the controls before moving focus off a
+                    // segment prompt. An immediate request can race the enter animation.
+                    delay(50L)
+                    controlsFocusRequester.requestFocus()
                 }
-            },
-            modifier = Modifier.fillMaxSize(),
-        )
-        val focusRequester = remember { FocusRequester() }
-        VideoPlayerOverlay(
-            modifier = Modifier.align(Alignment.BottomCenter),
-            focusRequester = focusRequester,
-            state = videoPlayerState,
-            isPlaying = isPlaying,
-            controls = {
-                VideoPlayerControls(
-                    title = uiState.currentItemTitle,
-                    isPlaying = isPlaying,
-                    contentCurrentPosition = currentPosition,
-                    player = viewModel.player,
-                    state = videoPlayerState,
-                    focusRequester = focusRequester,
-                    // navigator = navigator,
+                else -> rootFocusRequester.requestFocus()
+            }
+        }
+    }
+
+    BackHandler(
+        enabled =
+            selectedTrackType != null ||
+                videoPlayerState.mode != VideoPlayerOverlayMode.Hidden ||
+                skipButtonFocused
+    ) {
+        when {
+            selectedTrackType != null -> selectedTrackType = null
+            videoPlayerState.mode != VideoPlayerOverlayMode.Hidden -> {
+                videoPlayerState.hideControls()
+                rootFocusRequester.requestFocus()
+            }
+            skipButtonFocused && segment != null -> {
+                dismissedSkipSegment = segment
+                rootFocusRequester.requestFocus()
+            }
+        }
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        Box(
+            modifier =
+                Modifier.fillMaxSize()
+                    .focusRequester(rootFocusRequester)
+                    .playerDPadEvents(
+                        player = viewModel.player,
+                        videoPlayerState = videoPlayerState,
+                        skipPromptFocused = skipButtonFocused,
+                    )
+                    .focusable()
+        ) {
+            AndroidView(
+                factory = { playerViewContext ->
+                    PlayerView(playerViewContext).also { playerView ->
+                        playerView.player = viewModel.player
+                        playerView.useController = false
+                        viewModel.initializePlayer(
+                            itemId = itemId,
+                            itemKind = itemKind,
+                            startFromBeginning = startFromBeginning,
+                        )
+                        playerView.setBackgroundColor(
+                            playerViewContext.resources.getColor(
+                                android.R.color.black,
+                                playerViewContext.theme,
+                            )
+                        )
+                    }
+                },
+                update = { playerView ->
+                    when (lifecycle) {
+                        Lifecycle.Event.ON_PAUSE -> {
+                            playerView.onPause()
+                            playerView.player?.pause()
+                        }
+                        Lifecycle.Event.ON_RESUME -> playerView.onResume()
+                        else -> Unit
+                    }
+                },
+                modifier = Modifier.fillMaxSize(),
+            )
+            VideoPlayerOverlay(
+                modifier = Modifier.align(Alignment.BottomCenter),
+                focusRequester = controlsFocusRequester,
+                state = videoPlayerState,
+                shouldAutoHide = playWhenReady,
+                controls = {
+                    VideoPlayerControls(
+                        title = uiState.currentItemTitle,
+                        isPlaying = isPlaying,
+                        contentCurrentPosition = currentPosition,
+                        chapters = uiState.currentChapters,
+                        showChapterMarkers = viewModel.chapterMarkersEnabled,
+                        player = viewModel.player,
+                        state = videoPlayerState,
+                        focusRequester = controlsFocusRequester,
+                        skipButtonFocusRequester = skipButtonFocusRequester,
+                        skipPromptAvailable = segment != null,
+                        onSelectAudio = { selectedTrackType = C.TRACK_TYPE_AUDIO },
+                        onSelectSubtitles = { selectedTrackType = C.TRACK_TYPE_TEXT },
+                    )
+                },
+            )
+        }
+
+        if (segment != null) {
+            SkipButton(
+                stringRes = uiState.currentSkipButtonStringRes,
+                onClick = { viewModel.skipSegment(segment) },
+                skipButtonFocusRequester = skipButtonFocusRequester,
+                onFocusChanged = { focused ->
+                    skipButtonFocused = focused
+                    if (focused && videoPlayerState.mode == VideoPlayerOverlayMode.Controls) {
+                        videoPlayerState.showControls()
+                    }
+                },
+                onNavigateFocus = { target ->
+                    when (target) {
+                        PlayerFocusTarget.DefaultControls -> {
+                            if (videoPlayerState.mode == VideoPlayerOverlayMode.Controls) {
+                                controlsFocusRequester.requestFocus()
+                            } else {
+                                videoPlayerState.showControls()
+                            }
+                        }
+                        PlayerFocusTarget.SkipPrompt -> skipButtonFocusRequester.requestFocus()
+                    }
+                },
+                onSeekBack = {
+                    viewModel.player.seekByConfiguredIncrement(forward = false)
+                    videoPlayerState.showPeek()
+                },
+                onSeekForward = {
+                    viewModel.player.seekByConfiguredIncrement(forward = true)
+                    videoPlayerState.showPeek()
+                },
+            )
+        }
+    }
+
+    selectedTrackType?.let { trackType ->
+        val tracks =
+            if (trackType == C.TRACK_TYPE_AUDIO) uiState.audioTracks else uiState.subtitleTracks
+        VideoPlayerTrackSelectorDialog(
+            trackType = trackType,
+            tracks = tracks,
+            onSelect = { track ->
+                viewModel.switchToTrack(
+                    trackType = trackType,
+                    groupIndex = track?.groupIndex,
+                    trackIndex = track?.trackIndex,
                 )
+                selectedTrackType = null
             },
+            onDismiss = { selectedTrackType = null },
         )
     }
 }
 
 @androidx.annotation.OptIn(UnstableApi::class)
 @Composable
-fun VideoPlayerControls(
+private fun VideoPlayerControls(
     title: String,
     isPlaying: Boolean,
     contentCurrentPosition: Long,
+    chapters: List<PlayerChapter>,
+    showChapterMarkers: Boolean,
     player: Player,
     state: VideoPlayerState,
     focusRequester: FocusRequester,
-    // navigator: DestinationsNavigator,
+    skipButtonFocusRequester: FocusRequester,
+    skipPromptAvailable: Boolean,
+    onSelectAudio: () -> Unit,
+    onSelectSubtitles: () -> Unit,
 ) {
     val onPlayPauseToggle = { shouldPlay: Boolean ->
-        if (shouldPlay) {
-            player.play()
-        } else {
-            player.pause()
-        }
+        if (shouldPlay) player.play() else player.pause()
     }
+    val chapterMarkers =
+        if (showChapterMarkers) {
+            chapterMarkerProgress(chapters.map { it.startPosition }, player.duration)
+        } else {
+            emptyList()
+        }
 
     VideoPlayerControlsLayout(
         mediaTitle = { VideoPlayerMediaTitle(title = title, subtitle = null) },
@@ -251,9 +353,26 @@ fun VideoPlayerControls(
                 state = state,
                 isPlaying = isPlaying,
                 onPlayPauseToggle = onPlayPauseToggle,
-                onSeek = { player.seekTo(player.duration.times(it).toLong()) },
-                contentProgress = contentCurrentPosition.milliseconds,
-                contentDuration = player.duration.milliseconds,
+                onSeekBack = { player.seekByConfiguredIncrement(forward = false) },
+                onSeekForward = { player.seekByConfiguredIncrement(forward = true) },
+                onNavigateDown =
+                    if (
+                        playerFocusDestination(
+                            source = PlayerFocusTarget.DefaultControls,
+                            direction = PlayerFocusDirection.Down,
+                            skipPromptAvailable = skipPromptAvailable,
+                        ) == PlayerFocusTarget.SkipPrompt
+                    ) {
+                        {
+                            state.showControls()
+                            skipButtonFocusRequester.requestFocus()
+                        }
+                    } else {
+                        null
+                    },
+                contentProgress = contentCurrentPosition,
+                contentDuration = player.duration,
+                chapterMarkers = chapterMarkers,
             )
         },
         mediaActions = {
@@ -261,22 +380,12 @@ fun VideoPlayerControls(
                 VideoPlayerMediaButton(
                     icon = painterResource(id = R.drawable.ic_speaker),
                     state = state,
-                    isPlaying = isPlaying,
-                    onClick = {
-                        // val tracks = getTracks(player, C.TRACK_TYPE_AUDIO)
-                        // navigator.navigate(VideoPlayerTrackSelectorDialogDestination(C.TRACK_TYPE_AUDIO,
-                        // tracks))
-                    },
+                    onClick = onSelectAudio,
                 )
                 VideoPlayerMediaButton(
                     icon = painterResource(id = R.drawable.ic_closed_caption),
                     state = state,
-                    isPlaying = isPlaying,
-                    onClick = {
-                        // val tracks = getTracks(player, C.TRACK_TYPE_TEXT)
-                        // navigator.navigate(VideoPlayerTrackSelectorDialogDestination(C.TRACK_TYPE_TEXT,
-                        // tracks))
-                    },
+                    onClick = onSelectSubtitles,
                 )
             }
         },
@@ -288,6 +397,10 @@ private fun SkipButton(
     stringRes: Int,
     onClick: () -> Unit,
     skipButtonFocusRequester: FocusRequester,
+    onFocusChanged: (Boolean) -> Unit,
+    onNavigateFocus: (PlayerFocusTarget) -> Unit,
+    onSeekBack: () -> Unit,
+    onSeekForward: () -> Unit,
 ) {
     Box(
         modifier = Modifier.fillMaxSize().padding(MaterialTheme.spacings.large).zIndex(1f),
@@ -295,7 +408,43 @@ private fun SkipButton(
     ) {
         Button(
             onClick = onClick,
-            modifier = Modifier.focusRequester(skipButtonFocusRequester),
+            modifier =
+                Modifier.focusRequester(skipButtonFocusRequester)
+                    .onFocusChanged { onFocusChanged(it.isFocused) }
+                    .onPreviewKeyEvent { event ->
+                        val keyEvent = event.nativeKeyEvent
+                        when (keyEvent.keyCode) {
+                            KeyEvent.KEYCODE_DPAD_LEFT,
+                            KeyEvent.KEYCODE_SYSTEM_NAVIGATION_LEFT -> {
+                                if (keyEvent.action == KeyEvent.ACTION_DOWN) onSeekBack()
+                                true
+                            }
+                            KeyEvent.KEYCODE_DPAD_RIGHT,
+                            KeyEvent.KEYCODE_SYSTEM_NAVIGATION_RIGHT -> {
+                                if (keyEvent.action == KeyEvent.ACTION_DOWN) onSeekForward()
+                                true
+                            }
+                            KeyEvent.KEYCODE_DPAD_UP,
+                            KeyEvent.KEYCODE_SYSTEM_NAVIGATION_UP,
+                            KeyEvent.KEYCODE_DPAD_DOWN,
+                            KeyEvent.KEYCODE_SYSTEM_NAVIGATION_DOWN -> {
+                                val direction = keyEvent.playerFocusDirectionOrNull()
+                                val destination =
+                                    direction?.let {
+                                        playerFocusDestination(
+                                            source = PlayerFocusTarget.SkipPrompt,
+                                            direction = it,
+                                            skipPromptAvailable = true,
+                                        )
+                                    }
+                                if (keyEvent.action == KeyEvent.ACTION_DOWN && destination != null) {
+                                    onNavigateFocus(destination)
+                                }
+                                true
+                            }
+                            else -> false
+                        }
+                    },
             glow =
                 ButtonDefaults.glow(
                     focusedGlow = Glow(elevationColor = Color.Gray, elevation = 20.dp)
@@ -311,48 +460,106 @@ private fun SkipButton(
     }
 }
 
-private fun Modifier.dPadEvents(exoPlayer: Player, videoPlayerState: VideoPlayerState): Modifier =
-    this.handleDPadKeyEvents(
-        onLeft = {},
-        onRight = {},
-        onUp = {},
-        onDown = {},
-        onEnter = {
-            exoPlayer.pause()
-            videoPlayerState.showControls()
-        },
-    )
+private fun Modifier.playerDPadEvents(
+    player: Player,
+    videoPlayerState: VideoPlayerState,
+    skipPromptFocused: Boolean,
+): Modifier =
+    onPreviewKeyEvent { event ->
+        if (
+            !playerRootOwnsPlaybackKeys(
+                overlayMode = videoPlayerState.mode,
+                skipPromptFocused = skipPromptFocused,
+            )
+        ) {
+            return@onPreviewKeyEvent false
+        }
 
-@androidx.annotation.OptIn(UnstableApi::class)
-private fun getTracks(player: Player, type: Int): Array<Track> {
-    val tracks = arrayListOf<Track>()
-    for (groupIndex in 0 until player.currentTracks.groups.count()) {
-        val group = player.currentTracks.groups[groupIndex]
-        if (group.type == type) {
-            val format = group.mediaTrackGroup.getFormat(0)
-
-            val track =
-                Track(
-                    id = groupIndex,
-                    label = format.label,
-                    language = Locale(format.language.toString()).displayLanguage,
-                    codec = format.codecs,
-                    selected = group.isSelected,
-                    supported = group.isSupported,
-                )
-
-            tracks.add(track)
+        val keyEvent = event.nativeKeyEvent
+        when (keyEvent.keyCode) {
+            KeyEvent.KEYCODE_DPAD_LEFT,
+            KeyEvent.KEYCODE_SYSTEM_NAVIGATION_LEFT -> {
+                if (keyEvent.action == KeyEvent.ACTION_DOWN) {
+                    player.seekByConfiguredIncrement(forward = false)
+                    videoPlayerState.showPeek()
+                }
+                true
+            }
+            KeyEvent.KEYCODE_DPAD_RIGHT,
+            KeyEvent.KEYCODE_SYSTEM_NAVIGATION_RIGHT -> {
+                if (keyEvent.action == KeyEvent.ACTION_DOWN) {
+                    player.seekByConfiguredIncrement(forward = true)
+                    videoPlayerState.showPeek()
+                }
+                true
+            }
+            KeyEvent.KEYCODE_DPAD_UP,
+            KeyEvent.KEYCODE_SYSTEM_NAVIGATION_UP,
+            KeyEvent.KEYCODE_DPAD_DOWN,
+            KeyEvent.KEYCODE_SYSTEM_NAVIGATION_DOWN -> {
+                if (keyEvent.action == KeyEvent.ACTION_DOWN) videoPlayerState.showControls()
+                true
+            }
+            KeyEvent.KEYCODE_DPAD_CENTER,
+            KeyEvent.KEYCODE_ENTER,
+            KeyEvent.KEYCODE_NUMPAD_ENTER -> {
+                if (keyEvent.action == KeyEvent.ACTION_UP) {
+                    if (player.isPlaying) player.pause() else player.play()
+                    videoPlayerState.showControls()
+                }
+                true
+            }
+            else -> false
         }
     }
 
-    val noneTrack =
-        Track(
-            id = -1,
-            label = null,
-            language = null,
-            codec = null,
-            selected = !tracks.any { it.selected },
-            supported = true,
+internal fun playerRootOwnsPlaybackKeys(
+    overlayMode: VideoPlayerOverlayMode,
+    skipPromptFocused: Boolean,
+): Boolean =
+    overlayMode != VideoPlayerOverlayMode.Controls &&
+        !skipPromptFocused
+
+internal enum class PlayerFocusTarget {
+    DefaultControls,
+    SkipPrompt,
+}
+
+internal enum class PlayerFocusDirection {
+    Up,
+    Down,
+}
+
+internal fun playerFocusDestination(
+    source: PlayerFocusTarget,
+    direction: PlayerFocusDirection,
+    skipPromptAvailable: Boolean,
+): PlayerFocusTarget? =
+    when {
+        !skipPromptAvailable -> null
+        source == PlayerFocusTarget.DefaultControls && direction == PlayerFocusDirection.Down ->
+            PlayerFocusTarget.SkipPrompt
+        source == PlayerFocusTarget.SkipPrompt && direction == PlayerFocusDirection.Up ->
+            PlayerFocusTarget.DefaultControls
+        else -> null
+    }
+
+private fun KeyEvent.playerFocusDirectionOrNull(): PlayerFocusDirection? =
+    when (keyCode) {
+        KeyEvent.KEYCODE_DPAD_UP,
+        KeyEvent.KEYCODE_SYSTEM_NAVIGATION_UP -> PlayerFocusDirection.Up
+        KeyEvent.KEYCODE_DPAD_DOWN,
+        KeyEvent.KEYCODE_SYSTEM_NAVIGATION_DOWN -> PlayerFocusDirection.Down
+        else -> null
+    }
+
+private fun Player.seekByConfiguredIncrement(forward: Boolean) {
+    seekTo(
+        seekTarget(
+            positionMs = currentPosition,
+            durationMs = duration,
+            incrementMs = if (forward) seekForwardIncrement else seekBackIncrement,
+            forward = forward,
         )
-    return arrayOf(noneTrack) + tracks
+    )
 }

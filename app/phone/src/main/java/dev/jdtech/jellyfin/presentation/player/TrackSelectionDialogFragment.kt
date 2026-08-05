@@ -9,7 +9,6 @@ import androidx.fragment.app.DialogFragment
 import androidx.media3.common.C
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import dev.jdtech.jellyfin.player.local.R
-import dev.jdtech.jellyfin.player.local.domain.getTrackNames
 import dev.jdtech.jellyfin.player.local.presentation.PlayerViewModel
 import java.lang.IllegalStateException
 
@@ -24,21 +23,23 @@ class TrackSelectionDialogFragment(
                 C.TRACK_TYPE_TEXT -> R.string.select_subtitle_track
                 else -> throw IllegalStateException("TrackType must be AUDIO or TEXT")
             }
-        val tracksGroups =
-            viewModel.player.currentTracks.groups.filter { it.type == type && it.isSupported }
+        val tracks = viewModel.currentTrackOptions(type).filter { it.supported }
         return activity?.let { activity ->
             val builder = MaterialAlertDialogBuilder(activity)
             builder.setTitle(getString(titleResource)).setSingleChoiceItems(
                 arrayOf(getString(R.string.none)) +
-                    tracksGroups.getTrackNames(), // Add "None" at the top of the list
-                tracksGroups.indexOfFirst { it.isSelected } +
+                    tracks
+                        .map { track ->
+                            listOfNotNull(track.label, track.language, track.codec)
+                                .filter { it.isNotBlank() }
+                                .joinToString(separator = " - ")
+                        }
+                        .toTypedArray(), // Add "None" at the top of the list
+                tracks.indexOfFirst { it.selected } +
                     1, // Add 1 to the index to account for the "None" item
             ) { dialog, which ->
-                viewModel.switchToTrack(
-                    type,
-                    which - 1, // Minus 1 to get the correct group without the "None" item. "None"
-                    // becomes -1
-                )
+                val track = tracks.getOrNull(which - 1)
+                viewModel.switchToTrack(type, track?.groupIndex, track?.trackIndex)
                 dialog.dismiss()
             }
             builder.create()

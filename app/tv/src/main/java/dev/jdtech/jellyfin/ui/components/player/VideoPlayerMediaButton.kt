@@ -14,19 +14,22 @@ import androidx.tv.material3.IconButton
 fun VideoPlayerMediaButton(
     icon: Painter,
     state: VideoPlayerState,
-    isPlaying: Boolean,
     onClick: () -> Unit = {},
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
 
-    LaunchedEffect(isFocused && isPlaying) {
-        if (isFocused && isPlaying) {
-            state.showControls()
-        }
+    LaunchedEffect(isFocused) {
+        if (isFocused) state.showControls()
     }
 
-    IconButton(onClick = onClick, interactionSource = interactionSource) {
+    IconButton(
+        onClick = {
+            state.showControls()
+            onClick()
+        },
+        interactionSource = interactionSource,
+    ) {
         Icon(painter = icon, contentDescription = null)
     }
 }

@@ -27,25 +27,19 @@ import dev.jdtech.jellyfin.presentation.theme.spacings
 
 @Composable
 fun VideoPlayerOverlay(
-    isPlaying: Boolean,
+    shouldAutoHide: Boolean,
     modifier: Modifier = Modifier,
     state: VideoPlayerState = rememberVideoPlayerState(),
     focusRequester: FocusRequester = remember { FocusRequester() },
     controls: @Composable () -> Unit = {},
 ) {
-    LaunchedEffect(state.controlsVisible) {
-        if (state.controlsVisible) {
+    LaunchedEffect(state.mode) {
+        if (state.mode == VideoPlayerOverlayMode.Controls) {
             focusRequester.requestFocus()
         }
     }
 
-    LaunchedEffect(isPlaying) {
-        if (!isPlaying) {
-            state.showControls(seconds = Int.MAX_VALUE)
-        } else {
-            state.showControls()
-        }
-    }
+    LaunchedEffect(shouldAutoHide) { state.onPlaybackIntentChanged(shouldAutoHide) }
 
     AnimatedVisibility(visible = state.controlsVisible, enter = fadeIn(), exit = fadeOut()) {
         Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
@@ -75,7 +69,7 @@ private fun VideoPlayerOverlayPreview() {
         Box(Modifier.fillMaxSize()) {
             VideoPlayerOverlay(
                 modifier = Modifier.align(Alignment.BottomCenter),
-                isPlaying = true,
+                shouldAutoHide = true,
                 controls = { Box(Modifier.fillMaxWidth().height(120.dp).background(Color.Blue)) },
             )
         }
