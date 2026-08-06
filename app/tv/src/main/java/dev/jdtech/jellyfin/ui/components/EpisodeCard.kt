@@ -12,9 +12,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -27,14 +32,23 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import dev.jdtech.jellyfin.core.presentation.dummy.dummyEpisode
+import dev.jdtech.jellyfin.core.R as CoreR
 import dev.jdtech.jellyfin.models.FindroidEpisode
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
 
 @Composable
-fun EpisodeCard(episode: FindroidEpisode, onClick: (FindroidEpisode) -> Unit) {
+fun EpisodeCard(
+    episode: FindroidEpisode,
+    onClick: (FindroidEpisode) -> Unit,
+    onLongClick: (FindroidEpisode) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var isFocused by remember { mutableStateOf(false) }
+
     Surface(
         onClick = { onClick(episode) },
+        onLongClick = { onLongClick(episode) },
         shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(10.dp)),
         colors =
             ClickableSurfaceDefaults.colors(
@@ -47,7 +61,7 @@ fun EpisodeCard(episode: FindroidEpisode, onClick: (FindroidEpisode) -> Unit) {
                     Border(BorderStroke(4.dp, Color.White), shape = RoundedCornerShape(10.dp))
             ),
         scale = ClickableSurfaceScale.None,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth().onFocusChanged { isFocused = it.isFocused },
     ) {
         Row(modifier = Modifier.padding(MaterialTheme.spacings.small)) {
             Box(modifier = Modifier.width(160.dp)) {
@@ -64,18 +78,30 @@ fun EpisodeCard(episode: FindroidEpisode, onClick: (FindroidEpisode) -> Unit) {
                 )
             }
             Spacer(modifier = Modifier.width(MaterialTheme.spacings.medium))
-            Column {
-                Text(
-                    text =
-                        stringResource(
-                            id = dev.jdtech.jellyfin.core.R.string.episode_name,
-                            episode.indexNumber,
-                            episode.name,
-                        ),
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text =
+                            stringResource(
+                                id = CoreR.string.episode_name,
+                                episode.indexNumber,
+                                episode.name,
+                            ),
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (isFocused) {
+                        Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
+                        Text(
+                            text = stringResource(CoreR.string.hold_ok_for_episode_actions),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.labelMedium,
+                            maxLines = 1,
+                        )
+                    }
+                }
                 Spacer(modifier = Modifier.height(MaterialTheme.spacings.extraSmall))
                 Text(
                     text = episode.overview,
@@ -91,5 +117,5 @@ fun EpisodeCard(episode: FindroidEpisode, onClick: (FindroidEpisode) -> Unit) {
 @Preview
 @Composable
 private fun ItemCardPreviewEpisode() {
-    FindroidTheme { EpisodeCard(episode = dummyEpisode, onClick = {}) }
+    FindroidTheme { EpisodeCard(episode = dummyEpisode, onClick = {}, onLongClick = {}) }
 }

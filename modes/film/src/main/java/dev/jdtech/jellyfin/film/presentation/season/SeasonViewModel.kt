@@ -58,6 +58,15 @@ class SeasonViewModel @Inject constructor(private val repository: JellyfinReposi
                     loadSeason(seasonId)
                 }
             }
+            is SeasonAction.SetEpisodePlayed -> {
+                viewModelScope.launch {
+                    when (action.played) {
+                        true -> repository.markAsPlayed(action.episodeId)
+                        false -> repository.markAsUnplayed(action.episodeId)
+                    }
+                    loadSeason(seasonId)
+                }
+            }
             is SeasonAction.MarkAsFavorite -> {
                 viewModelScope.launch {
                     repository.markAsFavorite(seasonId)

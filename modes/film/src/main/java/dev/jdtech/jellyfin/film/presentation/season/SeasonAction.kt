@@ -10,6 +10,8 @@ sealed interface SeasonAction {
 
     data object UnmarkAsPlayed : SeasonAction
 
+    data class SetEpisodePlayed(val episodeId: UUID, val played: Boolean) : SeasonAction
+
     data object MarkAsFavorite : SeasonAction
 
     data object UnmarkAsFavorite : SeasonAction

@@ -17,8 +17,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -35,8 +40,10 @@ import dev.jdtech.jellyfin.core.presentation.dummy.dummySeason
 import dev.jdtech.jellyfin.film.presentation.season.SeasonAction
 import dev.jdtech.jellyfin.film.presentation.season.SeasonState
 import dev.jdtech.jellyfin.film.presentation.season.SeasonViewModel
+import dev.jdtech.jellyfin.models.FindroidEpisode
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
+import dev.jdtech.jellyfin.presentation.film.components.EpisodeActionsDialog
 import dev.jdtech.jellyfin.ui.components.EpisodeCard
 import java.util.UUID
 
@@ -54,6 +61,7 @@ fun SeasonScreen(
         state = state,
         onAction = { action ->
             seasonPlaybackRoute(seasonId = seasonId, action = action)?.let(navigateToPlayer)
+            viewModel.onAction(action)
         },
     )
 }
@@ -68,6 +76,9 @@ internal fun seasonPlaybackRoute(seasonId: UUID, action: SeasonAction): PlayerRo
         is SeasonAction.NavigateToItem -> PlayerRoute.episode(itemId = action.item.id)
         else -> null
     }
+
+internal fun episodePlayedAction(episode: FindroidEpisode): SeasonAction.SetEpisodePlayed =
+    SeasonAction.SetEpisodePlayed(episodeId = episode.id, played = !episode.played)
 
 @Composable
 private fun SeasonScreenLayout(state: SeasonState, onAction: (SeasonAction) -> Unit) {
@@ -123,15 +134,47 @@ private fun SeasonScreenLayout(state: SeasonState, onAction: (SeasonAction) -> U
                     verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.medium),
                     modifier = Modifier.weight(2f).padding(end = MaterialTheme.spacings.extraLarge),
                 ) {
-                    items(state.episodes) { episode ->
-                        EpisodeCard(
-                            episode = episode,
-                            onClick = { onAction(SeasonAction.NavigateToItem(episode)) },
-                        )
+                    items(items = state.episodes, key = { episode -> episode.id }) { episode ->
+                        EpisodeRow(episode = episode, onAction = onAction)
                     }
                 }
             }
         } ?: run { CircularProgressIndicator(modifier = Modifier.align(Alignment.Center)) }
+    }
+}
+
+@Composable
+private fun EpisodeRow(episode: FindroidEpisode, onAction: (SeasonAction) -> Unit) {
+    val focusRequester = remember { FocusRequester() }
+    var showActions by remember { mutableStateOf(false) }
+    var restoreFocusOnDismiss by remember { mutableStateOf(false) }
+
+    LaunchedEffect(showActions) {
+        if (!showActions && restoreFocusOnDismiss) {
+            focusRequester.requestFocus()
+            restoreFocusOnDismiss = false
+        }
+    }
+
+    EpisodeCard(
+        episode = episode,
+        onClick = { onAction(SeasonAction.NavigateToItem(episode)) },
+        onLongClick = {
+            restoreFocusOnDismiss = true
+            showActions = true
+        },
+        modifier = Modifier.focusRequester(focusRequester),
+    )
+
+    if (showActions) {
+        EpisodeActionsDialog(
+            episode = episode,
+            onTogglePlayed = {
+                showActions = false
+                onAction(episodePlayedAction(episode))
+            },
+            onDismissRequest = { showActions = false },
+        )
     }
 }
 
