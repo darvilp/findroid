@@ -53,6 +53,8 @@ import dev.jdtech.jellyfin.core.R
 import dev.jdtech.jellyfin.models.FindroidSegment
 import dev.jdtech.jellyfin.player.local.domain.ChapterNavigationDirection
 import dev.jdtech.jellyfin.player.local.domain.ChapterNavigationState
+import dev.jdtech.jellyfin.player.local.domain.PlaylistNavigationDirection
+import dev.jdtech.jellyfin.player.local.domain.PlaylistNavigationState
 import dev.jdtech.jellyfin.player.local.presentation.PlayerViewModel
 import dev.jdtech.jellyfin.presentation.theme.spacings
 import dev.jdtech.jellyfin.ui.components.player.VideoPlayerControlsLayout
@@ -289,6 +291,7 @@ fun PlayerScreen(
                         isPlaying = isPlaying,
                         contentCurrentPosition = currentPosition,
                         chapterNavigation = chapterNavigation,
+                        playlistNavigation = uiState.playlistNavigation,
                         showChapterMarkers = viewModel.chapterMarkersEnabled,
                         player = viewModel.player,
                         state = videoPlayerState,
@@ -301,6 +304,8 @@ fun PlayerScreen(
                         onRestart = viewModel::restartCurrentItem,
                         onPreviousChapter = viewModel::seekToPreviousChapter,
                         onNextChapter = viewModel::seekToNextChapter,
+                        onPreviousEpisode = viewModel::goToPreviousEpisode,
+                        onNextEpisode = viewModel::goToNextEpisode,
                         onSelectAudio = { selectedTrackType = C.TRACK_TYPE_AUDIO },
                         onSelectSubtitles = { selectedTrackType = C.TRACK_TYPE_TEXT },
                     )
@@ -369,6 +374,7 @@ private fun VideoPlayerControls(
     isPlaying: Boolean,
     contentCurrentPosition: Long,
     chapterNavigation: ChapterNavigationState,
+    playlistNavigation: PlaylistNavigationState,
     showChapterMarkers: Boolean,
     player: Player,
     state: VideoPlayerState,
@@ -380,9 +386,31 @@ private fun VideoPlayerControls(
     onRestart: () -> Unit,
     onPreviousChapter: () -> Unit,
     onNextChapter: () -> Unit,
+    onPreviousEpisode: () -> Unit,
+    onNextEpisode: () -> Unit,
     onSelectAudio: () -> Unit,
     onSelectSubtitles: () -> Unit,
 ) {
+    var focusedEpisodeDirection by remember {
+        mutableStateOf<PlaylistNavigationDirection?>(null)
+    }
+    LaunchedEffect(playlistNavigation, focusedEpisodeDirection, state.mode) {
+        if (
+            state.mode == VideoPlayerOverlayMode.Controls &&
+                shouldRestoreEpisodeNavigationFocus(
+                    focusedDirection = focusedEpisodeDirection,
+                    navigation = playlistNavigation,
+                )
+        ) {
+            delay(50L)
+            focusRequester.requestFocus()
+            focusedEpisodeDirection = null
+        }
+    }
+    val clearEpisodeNavigationFocus = { focused: Boolean ->
+        if (focused) focusedEpisodeDirection = null
+    }
+
     val onPlayPauseToggle = { shouldPlay: Boolean ->
         if (shouldPlay) player.play() else player.pause()
     }
@@ -404,6 +432,12 @@ private fun VideoPlayerControls(
                 state = state,
                 isPlaying = isPlaying,
                 onPlayPauseToggle = onPlayPauseToggle,
+                playlistNavigation = playlistNavigation,
+                onPreviousEpisode = onPreviousEpisode,
+                onNextEpisode = onNextEpisode,
+                onEpisodeNavigationFocusChanged = { direction ->
+                    focusedEpisodeDirection = direction
+                },
                 onSeekKeyEvent = { keyEvent, direction ->
                     player.handleRemoteSeekKeyEvent(remoteSeekController, keyEvent, direction)
                 },
@@ -416,6 +450,7 @@ private fun VideoPlayerControls(
                         ) == PlayerFocusTarget.SkipPrompt
                     ) {
                         {
+                            focusedEpisodeDirection = null
                             state.showControls()
                             skipButtonFocusRequester.requestFocus()
                         }
@@ -434,6 +469,7 @@ private fun VideoPlayerControls(
                         icon = painterResource(id = R.drawable.ic_rotate_ccw),
                         state = state,
                         contentDescription = stringResource(id = R.string.restart_current_item),
+                        onFocusChanged = clearEpisodeNavigationFocus,
                         onClick = {
                             focusRequester.requestFocus()
                             onRestart()
@@ -446,6 +482,7 @@ private fun VideoPlayerControls(
                         state = state,
                         contentDescription = stringResource(id = R.string.previous_chapter),
                         enabled = chapterNavigation.previousChapter != null,
+                        onFocusChanged = clearEpisodeNavigationFocus,
                         onClick = onPreviousChapter,
                     )
                     VideoPlayerMediaButton(
@@ -453,6 +490,7 @@ private fun VideoPlayerControls(
                         state = state,
                         contentDescription = stringResource(id = R.string.next_chapter),
                         enabled = chapterNavigation.nextChapter != null,
+                        onFocusChanged = clearEpisodeNavigationFocus,
                         onClick = onNextChapter,
                     )
                 }
@@ -460,12 +498,14 @@ private fun VideoPlayerControls(
                     icon = painterResource(id = R.drawable.ic_speaker),
                     state = state,
                     contentDescription = stringResource(id = R.string.audio),
+                    onFocusChanged = clearEpisodeNavigationFocus,
                     onClick = onSelectAudio,
                 )
                 VideoPlayerMediaButton(
                     icon = painterResource(id = R.drawable.ic_closed_caption),
                     state = state,
                     contentDescription = stringResource(id = R.string.subtitle),
+                    onFocusChanged = clearEpisodeNavigationFocus,
                     onClick = onSelectSubtitles,
                 )
             }
@@ -606,6 +646,11 @@ internal fun playerRootOwnsPlaybackKeys(
 ): Boolean =
     overlayMode != VideoPlayerOverlayMode.Controls &&
         !skipPromptFocused
+
+internal fun shouldRestoreEpisodeNavigationFocus(
+    focusedDirection: PlaylistNavigationDirection?,
+    navigation: PlaylistNavigationState,
+): Boolean = focusedDirection?.let { direction -> !navigation.isAvailable(direction) } ?: false
 
 internal enum class PlayerFocusTarget {
     DefaultControls,

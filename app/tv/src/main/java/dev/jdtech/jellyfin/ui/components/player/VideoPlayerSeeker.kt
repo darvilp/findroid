@@ -13,9 +13,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.tv.material3.Icon
 import androidx.tv.material3.IconButton
@@ -24,6 +26,8 @@ import androidx.tv.material3.Text
 import dev.jdtech.jellyfin.core.R as CoreR
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
+import dev.jdtech.jellyfin.player.local.domain.PlaylistNavigationDirection
+import dev.jdtech.jellyfin.player.local.domain.PlaylistNavigationState
 import dev.jdtech.jellyfin.ui.player.RemoteSeekDirection
 
 @Composable
@@ -32,6 +36,10 @@ fun VideoPlayerSeeker(
     state: VideoPlayerState,
     isPlaying: Boolean,
     onPlayPauseToggle: (Boolean) -> Unit,
+    playlistNavigation: PlaylistNavigationState,
+    onPreviousEpisode: () -> Unit,
+    onNextEpisode: () -> Unit,
+    onEpisodeNavigationFocusChanged: (PlaylistNavigationDirection?) -> Unit,
     onSeekKeyEvent: (KeyEvent, RemoteSeekDirection) -> Unit,
     onNavigateDown: (() -> Unit)? = null,
     contentProgress: Long,
@@ -54,12 +62,36 @@ fun VideoPlayerSeeker(
             },
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (playlistNavigation.canGoPrevious) {
+            IconButton(
+                onClick = {
+                    focusRequester.requestFocus()
+                    onPreviousEpisode()
+                    state.showControls()
+                },
+                modifier =
+                    Modifier.onFocusChanged { focusState ->
+                        if (focusState.isFocused) {
+                            onEpisodeNavigationFocusChanged(PlaylistNavigationDirection.Previous)
+                        }
+                    },
+            ) {
+                Icon(
+                    painter = painterResource(id = CoreR.drawable.ic_skip_back),
+                    contentDescription = stringResource(id = CoreR.string.previous_episode),
+                )
+            }
+        }
         IconButton(
             onClick = {
                 onPlayPauseToggle(!isPlaying)
                 state.showControls()
             },
-            modifier = Modifier.focusRequester(focusRequester),
+            modifier =
+                Modifier.focusRequester(focusRequester)
+                    .onFocusChanged { focusState ->
+                        if (focusState.isFocused) onEpisodeNavigationFocusChanged(null)
+                    },
         ) {
             Icon(
                 painter =
@@ -74,8 +106,33 @@ fun VideoPlayerSeeker(
                 contentDescription = null,
             )
         }
+        if (playlistNavigation.canGoNext) {
+            IconButton(
+                onClick = {
+                    focusRequester.requestFocus()
+                    onNextEpisode()
+                    state.showControls()
+                },
+                modifier =
+                    Modifier.onFocusChanged { focusState ->
+                        if (focusState.isFocused) {
+                            onEpisodeNavigationFocusChanged(PlaylistNavigationDirection.Next)
+                        }
+                    },
+            ) {
+                Icon(
+                    painter = painterResource(id = CoreR.drawable.ic_skip_forward),
+                    contentDescription = stringResource(id = CoreR.string.next_episode),
+                )
+            }
+        }
         Spacer(modifier = Modifier.width(MaterialTheme.spacings.medium))
-        Column {
+        Column(
+            modifier =
+                Modifier.weight(1f).onFocusChanged { focusState ->
+                    if (focusState.hasFocus) onEpisodeNavigationFocusChanged(null)
+                }
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -160,6 +217,11 @@ private fun VideoPlayerSeekerPreview() {
             state = rememberVideoPlayerState(),
             isPlaying = false,
             onPlayPauseToggle = {},
+            playlistNavigation =
+                PlaylistNavigationState(canGoPrevious = true, canGoNext = true),
+            onPreviousEpisode = {},
+            onNextEpisode = {},
+            onEpisodeNavigationFocusChanged = {},
             onSeekKeyEvent = { _, _ -> },
             contentProgress = 471_000L,
             contentDuration = 1_420_000L,

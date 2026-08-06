@@ -16,12 +16,14 @@ fun VideoPlayerMediaButton(
     state: VideoPlayerState,
     contentDescription: String,
     enabled: Boolean = true,
+    onFocusChanged: (Boolean) -> Unit = {},
     onClick: () -> Unit = {},
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
 
     LaunchedEffect(isFocused) {
+        onFocusChanged(isFocused)
         if (isFocused) state.showControls()
     }
 

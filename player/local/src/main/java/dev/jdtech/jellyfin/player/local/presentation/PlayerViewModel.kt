@@ -14,6 +14,7 @@ import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
+import androidx.media3.common.Timeline
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
@@ -38,6 +39,10 @@ import dev.jdtech.jellyfin.player.local.domain.MediaSegmentPlaybackPreferences
 import dev.jdtech.jellyfin.player.local.domain.PlaylistManager
 import dev.jdtech.jellyfin.player.local.domain.PlaybackRestartController
 import dev.jdtech.jellyfin.player.local.domain.PlaybackRestartTarget
+import dev.jdtech.jellyfin.player.local.domain.PlaylistNavigationController
+import dev.jdtech.jellyfin.player.local.domain.PlaylistNavigationDirection
+import dev.jdtech.jellyfin.player.local.domain.PlaylistNavigationState
+import dev.jdtech.jellyfin.player.local.domain.PlaylistNavigationTarget
 import dev.jdtech.jellyfin.player.local.domain.toTrackOptions
 import dev.jdtech.jellyfin.player.local.mpv.MPVPlayer
 import dev.jdtech.jellyfin.repository.JellyfinRepository
@@ -80,6 +85,7 @@ constructor(
                 currentSkipButtonStringRes = R.string.player_controls_skip_intro,
                 currentTrickplay = null,
                 currentChapters = emptyList(),
+                playlistNavigation = PlaylistNavigationState(false, false),
                 audioTracks = emptyList(),
                 subtitleTracks = emptyList(),
                 fileLoaded = false,
@@ -96,6 +102,7 @@ constructor(
         val currentSkipButtonStringRes: Int,
         val currentTrickplay: Trickplay?,
         val currentChapters: List<PlayerChapter>,
+        val playlistNavigation: PlaylistNavigationState,
         val audioTracks: List<Track>,
         val subtitleTracks: List<Track>,
         val fileLoaded: Boolean,
@@ -110,6 +117,7 @@ constructor(
     private val mediaSegmentPlayback = MediaSegmentPlayback()
     private val playbackRestartController = PlaybackRestartController()
     private val chapterNavigationController = ChapterNavigationController()
+    private val playlistNavigationController = PlaylistNavigationController()
 
     // Segments preferences
     var segmentsSkipButton: Boolean = false
@@ -203,6 +211,29 @@ constructor(
             else -> throw RuntimeException("$playerBackend is not a valid player backend")
         }
     }
+
+    private val playlistNavigationTarget =
+        object : PlaylistNavigationTarget {
+            override fun hasPreviousMediaItem(): Boolean = player.hasPreviousMediaItem()
+
+            override fun hasNextMediaItem(): Boolean = player.hasNextMediaItem()
+
+            override fun isPreviousMediaItemCommandAvailable(): Boolean =
+                player.isCommandAvailable(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
+
+            override fun isNextMediaItemCommandAvailable(): Boolean =
+                player.isCommandAvailable(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
+
+            override fun seekToPreviousMediaItem() = player.seekToPreviousMediaItem()
+
+            override fun seekToNextMediaItem() = player.seekToNextMediaItem()
+
+            override fun playWhenReady(): Boolean = player.playWhenReady
+
+            override fun play() = player.play()
+
+            override fun pause() = player.pause()
+        }
 
     fun initializePlayer(itemId: UUID, itemKind: String, startFromBeginning: Boolean) {
         player.addListener(this)
@@ -365,7 +396,13 @@ constructor(
         Timber.d("Playing MediaItem: ${mediaItem?.mediaId}")
         savedStateHandle["mediaItemIndex"] = player.currentMediaItemIndex
         chapterNavigationController.reset()
-        _uiState.update { it.copy(currentSegment = null, currentChapters = emptyList()) }
+        _uiState.update {
+            it.copy(
+                currentSegment = null,
+                currentChapters = emptyList(),
+                playlistNavigation = playlistNavigationController.state(playlistNavigationTarget),
+            )
+        }
         val transitionedMediaId = mediaItem?.mediaId ?: return
         beginPlaybackPass(itemId = UUID.fromString(transitionedMediaId))
         viewModelScope.launch {
@@ -423,6 +460,8 @@ constructor(
                             )
                         }
 
+                        updatePlaylistNavigationState()
+
                         Timber.tag("PlayerItems").d(items.map { it.indexNumber }.toString())
                     }
             } catch (e: Exception) {
@@ -430,6 +469,27 @@ constructor(
             }
         }
     }
+
+    override fun onTimelineChanged(timeline: Timeline, reason: Int) {
+        updatePlaylistNavigationState()
+    }
+
+    override fun onAvailableCommandsChanged(availableCommands: Player.Commands) {
+        updatePlaylistNavigationState()
+    }
+
+    private fun updatePlaylistNavigationState() {
+        val navigation = playlistNavigationController.state(playlistNavigationTarget)
+        _uiState.update { state -> state.copy(playlistNavigation = navigation) }
+    }
+
+    private fun navigatePlaylist(direction: PlaylistNavigationDirection): Boolean =
+        playlistNavigationController.navigate(direction, playlistNavigationTarget)
+
+    fun goToPreviousEpisode(): Boolean =
+        navigatePlaylist(PlaylistNavigationDirection.Previous)
+
+    fun goToNextEpisode(): Boolean = navigatePlaylist(PlaylistNavigationDirection.Next)
 
     override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
         // Report playback stopped for current item and transition to the next one
