@@ -313,6 +313,7 @@ class MPVPlayer(
     private var initialIndex: Int = 0
     private var initialSeekTo: Long = 0L
     private var oldMediaItem: MediaItem? = null
+    private var pendingPlaylistInsertion: MpvPlaylistInsertionPlan? = null
 
     // mpv events
     override fun eventProperty(property: String) {
@@ -402,7 +403,14 @@ class MPVPlayer(
                     if (value < 0) {
                         return@post
                     }
-                    currentMediaItemIndex = value.toInt()
+                    val observedIndex = value.toInt()
+                    pendingPlaylistInsertion?.let { insertion ->
+                        if (!insertion.acceptsPlaylistCurrentPosition(observedIndex)) {
+                            return@post
+                        }
+                        pendingPlaylistInsertion = null
+                    }
+                    currentMediaItemIndex = observedIndex
                     val newMediaItem = currentMediaItem
                     if (oldMediaItem?.mediaId != newMediaItem?.mediaId) {
                         oldMediaItem = newMediaItem
@@ -729,14 +737,25 @@ class MPVPlayer(
      * @param mediaItems The [MediaItems][MediaItem] to add.
      */
     override fun addMediaItems(index: Int, mediaItems: MutableList<MediaItem>) {
-        internalMediaItems.addAll(index, mediaItems)
-        mediaItems.forEach { mediaItem ->
+        val insertion =
+            planMpvPlaylistInsertion(
+                requestedIndex = index,
+                playlistSize = internalMediaItems.size,
+                currentMediaItemIndex = currentMediaItemIndex,
+                insertedItemCount = mediaItems.size,
+            )
+        internalMediaItems.addAll(insertion.insertionIndex, mediaItems)
+        currentMediaItemIndex = insertion.currentMediaItemIndex
+        if (insertion.awaitedPlaylistCurrentPosition != null) {
+            pendingPlaylistInsertion = insertion
+        }
+        mediaItems.zip(insertion.commandIndices).forEach { (mediaItem, commandIndex) ->
             mpvLib.command(
                 arrayOf(
                     "loadfile",
                     "${mediaItem.localConfiguration?.uri}",
                     "insert-at",
-                    index.toString(),
+                    commandIndex.toString(),
                 )
             )
         }
@@ -829,6 +848,7 @@ class MPVPlayer(
         currentTracks = Tracks.EMPTY
         playbackParameters = PlaybackParameters.DEFAULT
         initialCommands.clear()
+        pendingPlaylistInsertion = null
     }
 
     /** Prepares the player. */
