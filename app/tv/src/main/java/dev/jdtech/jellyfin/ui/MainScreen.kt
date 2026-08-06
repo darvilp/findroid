@@ -44,6 +44,7 @@ import dev.jdtech.jellyfin.models.CollectionType
 import dev.jdtech.jellyfin.models.User
 import dev.jdtech.jellyfin.presentation.film.HomeScreen
 import dev.jdtech.jellyfin.presentation.film.MediaScreen
+import dev.jdtech.jellyfin.presentation.film.SearchScreen
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
 import dev.jdtech.jellyfin.ui.components.LoadingIndicator
@@ -83,6 +84,9 @@ enum class TabDestination(@param:DrawableRes val icon: Int, @param:StringRes val
     // LiveTV(CoreR.drawable.ic_tv, CoreR.string.live_tv)
 }
 
+internal fun defaultTabIndex(destinations: List<TabDestination>): Int =
+    destinations.indexOf(TabDestination.Home)
+
 @Composable
 private fun MainScreenLayout(
     uiState: MainViewModel.UiState,
@@ -92,8 +96,11 @@ private fun MainScreenLayout(
     navigateToShow: (itemId: UUID) -> Unit,
     navigateToPlayer: (itemId: UUID, itemKind: BaseItemKind) -> Unit,
 ) {
-    var focusedTabIndex by rememberSaveable { mutableIntStateOf(1) }
+    var focusedTabIndex by rememberSaveable {
+        mutableIntStateOf(defaultTabIndex(TabDestination.entries))
+    }
     var activeTabIndex by rememberSaveable { mutableIntStateOf(focusedTabIndex) }
+    var rememberedSearchItemId by rememberSaveable { mutableStateOf<UUID?>(null) }
 
     var isLoading by remember { mutableStateOf(false) }
 
@@ -185,8 +192,16 @@ private fun MainScreenLayout(
                 ProfileButton(user = user, onClick = { navigateToSettings() })
             }
         }
-        when (activeTabIndex) {
-            1 -> {
+        when (TabDestination.entries[activeTabIndex]) {
+            TabDestination.Search -> {
+                SearchScreen(
+                    navigateToMovie = navigateToMovie,
+                    navigateToShow = navigateToShow,
+                    rememberedItemId = rememberedSearchItemId,
+                    onRememberedItemChange = { rememberedSearchItemId = it },
+                )
+            }
+            TabDestination.Home -> {
                 HomeScreen(
                     navigateToMovie = navigateToMovie,
                     navigateToShow = navigateToShow,
@@ -194,7 +209,7 @@ private fun MainScreenLayout(
                     isLoading = { isLoading = it },
                 )
             }
-            2 -> {
+            TabDestination.Libraries -> {
                 MediaScreen(navigateToLibrary = navigateToLibrary, isLoading = { isLoading = it })
             }
         }

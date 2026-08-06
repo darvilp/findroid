@@ -40,7 +40,6 @@ import dev.jdtech.jellyfin.film.presentation.search.SearchState
 import dev.jdtech.jellyfin.presentation.theme.spacings
 import dev.jdtech.jellyfin.presentation.utils.GridCellsAdaptiveWithMinColumns
 import dev.jdtech.jellyfin.presentation.utils.rememberSafePadding
-import kotlinx.coroutines.delay
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
@@ -55,8 +54,12 @@ fun FilmSearchBar(
 ) {
     val focusRequester = remember { FocusRequester() }
     val safePadding = rememberSafePadding()
+    var savedQuery by rememberSaveable { mutableStateOf(state.query) }
 
-    var query by rememberSaveable { mutableStateOf("") }
+    fun updateQuery(query: String) {
+        savedQuery = query
+        onAction(SearchAction.Search(query))
+    }
 
     val searchBarPaddingStart by
         animateDpAsState(
@@ -88,19 +91,17 @@ fun FilmSearchBar(
         }
     }
 
-    LaunchedEffect(query) {
-        if (query.isNotBlank()) {
-            // Debounce scales with input length. Max debounce of 300ms.
-            delay(minOf(50L + (query.count() * 50L), 300L))
+    LaunchedEffect(Unit) {
+        if (state.query != savedQuery) {
+            onAction(SearchAction.Search(savedQuery))
         }
-        onAction(SearchAction.Search(query))
     }
 
     SearchBar(
         inputField = {
             SearchBarDefaults.InputField(
-                query = query,
-                onQueryChange = { query = it },
+                query = if (state.query.isEmpty() && savedQuery.isNotEmpty()) savedQuery else state.query,
+                onQueryChange = { updateQuery(it) },
                 onSearch = { onExpand(true) },
                 expanded = expanded,
                 onExpandedChange = { onExpand(it) },
@@ -138,8 +139,8 @@ fun FilmSearchBar(
                 trailingIcon = {
                     if (state.loading) {
                         Box(modifier = Modifier.size(32.dp)) { CircularProgressIndicator() }
-                    } else if (query.isNotEmpty()) {
-                        IconButton(onClick = { query = "" }) {
+                    } else if (state.query.isNotEmpty()) {
+                        IconButton(onClick = { updateQuery("") }) {
                             Icon(
                                 painter = painterResource(CoreR.drawable.ic_x),
                                 contentDescription = null,
