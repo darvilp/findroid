@@ -38,6 +38,7 @@ fun ItemCard(
     direction: Direction,
     onClick: (FindroidItem) -> Unit,
     modifier: Modifier = Modifier,
+    surfaceModifier: Modifier = Modifier,
 ) {
     val width =
         when (direction) {
@@ -47,6 +48,7 @@ fun ItemCard(
     Column(modifier = modifier.width(width.dp)) {
         Surface(
             onClick = { onClick(item) },
+            modifier = surfaceModifier,
             shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(10.dp)),
             border =
                 ClickableSurfaceDefaults.border(

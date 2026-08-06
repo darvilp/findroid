@@ -44,6 +44,7 @@ import dev.jdtech.jellyfin.models.CollectionType
 import dev.jdtech.jellyfin.models.User
 import dev.jdtech.jellyfin.presentation.film.HomeScreen
 import dev.jdtech.jellyfin.presentation.film.MediaScreen
+import dev.jdtech.jellyfin.presentation.film.SearchScreen
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
 import dev.jdtech.jellyfin.ui.components.LoadingIndicator
@@ -76,10 +77,14 @@ fun MainScreen(
 }
 
 enum class TabDestination(@param:DrawableRes val icon: Int, @param:StringRes val label: Int) {
+    Search(CoreR.drawable.ic_search, CoreR.string.search),
     Home(CoreR.drawable.ic_home, CoreR.string.title_home),
     Libraries(CoreR.drawable.ic_library, CoreR.string.libraries),
     // LiveTV(CoreR.drawable.ic_tv, CoreR.string.live_tv)
 }
+
+internal fun defaultTabIndex(destinations: List<TabDestination>): Int =
+    destinations.indexOf(TabDestination.Home)
 
 @Composable
 private fun MainScreenLayout(
@@ -91,9 +96,10 @@ private fun MainScreenLayout(
     navigateToPlayer: (itemId: UUID) -> Unit,
 ) {
     var focusedTabIndex by rememberSaveable {
-        mutableIntStateOf(TabDestination.entries.indexOf(TabDestination.Home))
+        mutableIntStateOf(defaultTabIndex(TabDestination.entries))
     }
     var activeTabIndex by rememberSaveable { mutableIntStateOf(focusedTabIndex) }
+    var rememberedSearchItemId by rememberSaveable { mutableStateOf<UUID?>(null) }
 
     var isLoading by remember { mutableStateOf(false) }
 
@@ -186,6 +192,14 @@ private fun MainScreenLayout(
             }
         }
         when (TabDestination.entries[activeTabIndex]) {
+            TabDestination.Search -> {
+                SearchScreen(
+                    navigateToMovie = navigateToMovie,
+                    navigateToShow = navigateToShow,
+                    rememberedItemId = rememberedSearchItemId,
+                    onRememberedItemChange = { rememberedSearchItemId = it },
+                )
+            }
             TabDestination.Home -> {
                 HomeScreen(
                     navigateToMovie = navigateToMovie,
