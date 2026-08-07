@@ -136,7 +136,7 @@ class JellyfinRepositoryOfflineImpl(
         return emptyList()
     }
 
-    override suspend fun getResumeItems(): List<FindroidItem> {
+    override suspend fun getResumeItems(parentId: UUID?): List<FindroidItem> {
         return withContext(Dispatchers.IO) {
             val movies =
                 database
@@ -148,7 +148,15 @@ class JellyfinRepositoryOfflineImpl(
                     .getEpisodesByServerId(appPreferences.getValue(appPreferences.currentServer)!!)
                     .map { it.toFindroidEpisode(database, jellyfinApi.userId!!) }
                     .filter { it.playbackPositionTicks > 0 }
-            movies + episodes
+            val resumeItems = movies + episodes
+            if (parentId == null) {
+                resumeItems
+            } else {
+                resumeItems.filter { item ->
+                    item is FindroidEpisode &&
+                        (item.seriesId == parentId || item.seasonId == parentId)
+                }
+            }
         }
     }
 

@@ -8,6 +8,7 @@ import dev.jdtech.jellyfin.models.FindroidItem
 import dev.jdtech.jellyfin.models.FindroidMovie
 import dev.jdtech.jellyfin.models.FindroidSourceType
 import dev.jdtech.jellyfin.models.FindroidSources
+import dev.jdtech.jellyfin.models.isAvailableForPlayback
 import dev.jdtech.jellyfin.player.core.domain.models.ExternalSubtitle
 import dev.jdtech.jellyfin.player.core.domain.models.PlayerChapter
 import dev.jdtech.jellyfin.player.core.domain.models.PlayerItem
@@ -63,7 +64,7 @@ class PlaylistManager @Inject internal constructor(private val repository: Jelly
                                 seasonId = season.id,
                                 fields = listOf(ItemFields.CHAPTERS, ItemFields.TRICKPLAY),
                             )
-                            .filter { !it.missing }
+                            .let(::availablePlaylistEpisodes)
 
                     if (episodes.isEmpty()) {
                         return null
@@ -83,7 +84,7 @@ class PlaylistManager @Inject internal constructor(private val repository: Jelly
                                 seasonId = season.id,
                                 fields = listOf(ItemFields.CHAPTERS, ItemFields.TRICKPLAY),
                             )
-                            .filter { !it.missing }
+                            .let(::availablePlaylistEpisodes)
 
                     if (episodes.isEmpty()) {
                         return null
@@ -104,7 +105,7 @@ class PlaylistManager @Inject internal constructor(private val repository: Jelly
                                 seasonId = episode.seasonId,
                                 fields = listOf(ItemFields.CHAPTERS, ItemFields.TRICKPLAY),
                             )
-                            .filter { !it.missing }
+                            .let(::availablePlaylistEpisodes)
 
                     items = episodes
                     episode
@@ -271,3 +272,7 @@ class PlaylistManager @Inject internal constructor(private val repository: Jelly
         }
     }
 }
+
+internal fun availablePlaylistEpisodes(
+    episodes: List<FindroidEpisode>
+): List<FindroidEpisode> = episodes.filter(FindroidEpisode::isAvailableForPlayback)

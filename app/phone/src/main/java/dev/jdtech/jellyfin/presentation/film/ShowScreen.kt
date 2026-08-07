@@ -81,7 +81,9 @@ fun ShowScreen(
         onAction = { action ->
             when (action) {
                 is ShowAction.Play -> {
-                    context.startActivity(showPlaybackActivityRequest(showId, action).toIntent(context))
+                    showPlaybackActivityRequest(state, action)?.let { request ->
+                        context.startActivity(request.toIntent(context))
+                    }
                 }
                 is ShowAction.PlayTrailer -> {
                     try {
@@ -202,9 +204,14 @@ private fun ShowScreenLayout(state: ShowState, onAction: (ShowAction) -> Unit) {
                         onDownloadCancelClick = {},
                         onDownloadDeleteClick = {},
                         modifier = Modifier.fillMaxWidth(),
-                        canPlay = state.seasons.isNotEmpty(),
+                        canPlay = state.playbackStart != null,
                         playbackStartPositionTicks =
-                            state.playbackStartEpisode?.playbackPositionTicks ?: 0L,
+                            state.playbackStart
+                                ?.takeUnless { playbackStart ->
+                                    playbackStart.startFromBeginning
+                                }
+                                ?.episode
+                                ?.playbackPositionTicks ?: 0L,
                     )
                     Spacer(Modifier.height(MaterialTheme.spacings.small))
                     OverviewText(text = show.overview, maxCollapsedLines = 3)

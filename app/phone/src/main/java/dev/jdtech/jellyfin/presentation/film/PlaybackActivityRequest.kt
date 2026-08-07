@@ -3,9 +3,12 @@ package dev.jdtech.jellyfin.presentation.film
 import android.content.Context
 import android.content.Intent
 import dev.jdtech.jellyfin.PlayerActivity
+import dev.jdtech.jellyfin.film.presentation.PlaybackStart
+import dev.jdtech.jellyfin.film.presentation.shouldStartFromBeginning
 import dev.jdtech.jellyfin.film.presentation.season.SeasonAction
+import dev.jdtech.jellyfin.film.presentation.season.SeasonState
 import dev.jdtech.jellyfin.film.presentation.show.ShowAction
-import java.util.UUID
+import dev.jdtech.jellyfin.film.presentation.show.ShowState
 import org.jellyfin.sdk.model.api.BaseItemKind
 
 internal data class PlaybackActivityRequest(
@@ -22,21 +25,27 @@ internal data class PlaybackActivityRequest(
 }
 
 internal fun showPlaybackActivityRequest(
-    showId: UUID,
+    state: ShowState,
     action: ShowAction.Play,
-): PlaybackActivityRequest =
-    PlaybackActivityRequest(
-        itemId = showId.toString(),
-        itemKind = BaseItemKind.SERIES.serialName,
-        startFromBeginning = action.startFromBeginning,
-    )
+): PlaybackActivityRequest? {
+    return playbackActivityRequest(state.playbackStart, action.startFromBeginning)
+}
 
 internal fun seasonPlaybackActivityRequest(
-    seasonId: UUID,
+    state: SeasonState,
     action: SeasonAction.Play,
-): PlaybackActivityRequest =
-    PlaybackActivityRequest(
-        itemId = seasonId.toString(),
-        itemKind = BaseItemKind.SEASON.serialName,
-        startFromBeginning = action.startFromBeginning,
-    )
+): PlaybackActivityRequest? {
+    return playbackActivityRequest(state.playbackStart, action.startFromBeginning)
+}
+
+private fun playbackActivityRequest(
+    playbackStart: PlaybackStart?,
+    startFromBeginning: Boolean,
+): PlaybackActivityRequest? =
+    playbackStart?.let { start ->
+        PlaybackActivityRequest(
+            itemId = start.episode.id.toString(),
+            itemKind = BaseItemKind.EPISODE.serialName,
+            startFromBeginning = start.shouldStartFromBeginning(startFromBeginning),
+        )
+    }

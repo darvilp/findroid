@@ -68,9 +68,9 @@ fun SeasonScreen(
         onAction = { action ->
             when (action) {
                 is SeasonAction.Play -> {
-                    context.startActivity(
-                        seasonPlaybackActivityRequest(seasonId, action).toIntent(context)
-                    )
+                    seasonPlaybackActivityRequest(state, action)?.let { request ->
+                        context.startActivity(request.toIntent(context))
+                    }
                 }
                 is SeasonAction.OnBackClick -> navigateBack()
                 is SeasonAction.OnHomeClick -> navigateHome()
@@ -160,9 +160,14 @@ private fun SeasonScreenLayout(state: SeasonState, onAction: (SeasonAction) -> U
                         onDownloadDeleteClick = {},
                         modifier =
                             Modifier.padding(start = paddingStart, end = paddingEnd).fillMaxWidth(),
-                        canPlay = state.episodes.isNotEmpty(),
+                        canPlay = state.playbackStart != null,
                         playbackStartPositionTicks =
-                            state.playbackStartEpisode?.playbackPositionTicks ?: 0L,
+                            state.playbackStart
+                                ?.takeUnless { playbackStart ->
+                                    playbackStart.startFromBeginning
+                                }
+                                ?.episode
+                                ?.playbackPositionTicks ?: 0L,
                     )
                 }
                 items(items = state.episodes, key = { episode -> episode.id }) { episode ->

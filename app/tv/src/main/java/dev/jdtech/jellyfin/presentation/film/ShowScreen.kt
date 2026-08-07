@@ -89,7 +89,7 @@ fun ShowScreen(
     ShowScreenLayout(
         state = state,
         onAction = { action ->
-            showPlaybackRoute(showId = showId, action = action)?.let(navigateToPlayer)
+            showPlaybackRoute(state = state, action = action)?.let(navigateToPlayer)
             when (action) {
                 is ShowAction.PlayTrailer -> {
                     try {
@@ -239,6 +239,7 @@ private fun ShowScreenLayout(state: ShowState, onAction: (ShowAction) -> Unit) {
                                 Button(
                                     onClick = { onAction(ShowAction.Play()) },
                                     modifier = Modifier.focusRequester(focusRequester),
+                                    enabled = state.playbackStart != null,
                                 ) {
                                     Icon(
                                         painter = painterResource(id = CoreR.drawable.ic_play),
@@ -252,7 +253,7 @@ private fun ShowScreenLayout(state: ShowState, onAction: (ShowAction) -> Unit) {
                                         onClick = {
                                             onAction(ShowAction.Play(startFromBeginning = true))
                                         },
-                                        enabled = state.playbackStartEpisode != null,
+                                        enabled = state.playbackStart != null,
                                     ) {
                                         Icon(
                                             painter =

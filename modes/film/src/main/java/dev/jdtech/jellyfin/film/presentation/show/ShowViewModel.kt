@@ -3,10 +3,10 @@ package dev.jdtech.jellyfin.film.presentation.show
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dev.jdtech.jellyfin.film.presentation.PlaybackStartResolver
 import dev.jdtech.jellyfin.models.FindroidEpisode
 import dev.jdtech.jellyfin.models.FindroidItemPerson
 import dev.jdtech.jellyfin.models.FindroidShow
-import dev.jdtech.jellyfin.film.presentation.resolveSeriesPlaybackStartEpisode
 import dev.jdtech.jellyfin.repository.JellyfinRepository
 import java.util.UUID
 import javax.inject.Inject
@@ -21,7 +21,12 @@ import org.jellyfin.sdk.model.api.PersonKind
 import timber.log.Timber
 
 @HiltViewModel
-class ShowViewModel @Inject constructor(private val repository: JellyfinRepository) : ViewModel() {
+class ShowViewModel
+@Inject
+constructor(
+    private val repository: JellyfinRepository,
+    private val playbackStartResolver: PlaybackStartResolver,
+) : ViewModel() {
     private val _state = MutableStateFlow(ShowState())
     val state = _state.asStateFlow()
 
@@ -33,11 +38,13 @@ class ShowViewModel @Inject constructor(private val repository: JellyfinReposito
         this.showId = showId
         val generation = loadGeneration.begin()
         loadJob?.cancel()
+        _state.value = _state.value.copy(playbackStart = null, error = null)
         loadJob = viewModelScope.launch {
             try {
                 val show = repository.getShow(showId)
                 val nextUp = getNextUp(showId)
                 val seasons = repository.getSeasons(showId)
+                val playbackStart = playbackStartResolver.resolveSeries(showId, seasons)
                 val actors = getActors(show)
                 val director = getDirector(show)
                 val writers = getWriters(show)
@@ -47,7 +54,7 @@ class ShowViewModel @Inject constructor(private val repository: JellyfinReposito
                             _state.value.copy(
                                 show = show,
                                 nextUp = nextUp,
-                                playbackStartEpisode = nextUp,
+                                playbackStart = playbackStart,
                                 seasons = seasons,
                                 actors = actors,
                                 director = director,
@@ -55,25 +62,6 @@ class ShowViewModel @Inject constructor(private val repository: JellyfinReposito
                             )
                     }
                 if (!committed) return@launch
-                if (nextUp == null) {
-                    val playbackStartEpisode =
-                        resolveSeriesPlaybackStartEpisode(
-                            nextUp = null,
-                            loadFirstSeasonEpisodes = {
-                                seasons.firstOrNull()?.let { season ->
-                                    repository.getEpisodes(
-                                        seriesId = showId,
-                                        seasonId = season.id,
-                                    )
-                                } ?: emptyList()
-                            },
-                            onFailure = { Timber.e(it) },
-                        )
-                    loadGeneration.commit(generation) {
-                        _state.value =
-                            _state.value.copy(playbackStartEpisode = playbackStartEpisode)
-                    }
-                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -85,8 +73,14 @@ class ShowViewModel @Inject constructor(private val repository: JellyfinReposito
     }
 
     private suspend fun getNextUp(showId: UUID): FindroidEpisode? {
-        val nextUpItems = repository.getNextUp(showId)
-        return nextUpItems.getOrNull(0)
+        return try {
+            repository.getNextUp(showId).firstOrNull()
+        } catch (exception: CancellationException) {
+            throw exception
+        } catch (exception: Exception) {
+            Timber.e(exception, "Failed to retrieve series next up display item")
+            null
+        }
     }
 
     private suspend fun getActors(item: FindroidShow): List<FindroidItemPerson> {

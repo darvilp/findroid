@@ -1,6 +1,7 @@
 package dev.jdtech.jellyfin.presentation.film
 
 import dev.jdtech.jellyfin.film.presentation.movie.MovieAction
+import dev.jdtech.jellyfin.film.presentation.PlaybackStart
 import dev.jdtech.jellyfin.film.presentation.season.SeasonState
 import dev.jdtech.jellyfin.film.presentation.show.ShowAction
 import dev.jdtech.jellyfin.film.presentation.show.ShowState
@@ -16,8 +17,11 @@ class DetailsPlaybackTest {
     fun `show details eligibility follows the episode series playback will start`() {
         val state =
             ShowState(
-                playbackStartEpisode =
-                    dummyEpisode.copy(playbackPositionTicks = 600_000_000L)
+                playbackStart =
+                    PlaybackStart(
+                        episode = dummyEpisode.copy(playbackPositionTicks = 600_000_000L),
+                        startFromBeginning = false,
+                    )
             )
 
         assertTrue(hasMeaningfulPlaybackStart(state))
@@ -27,8 +31,11 @@ class DetailsPlaybackTest {
     fun `season details eligibility follows the episode season playback will start`() {
         val state =
             SeasonState(
-                playbackStartEpisode =
-                    dummyEpisode.copy(playbackPositionTicks = 599_999_999L)
+                playbackStart =
+                    PlaybackStart(
+                        episode = dummyEpisode.copy(playbackPositionTicks = 599_999_999L),
+                        startFromBeginning = false,
+                    )
             )
 
         assertFalse(hasMeaningfulPlaybackStart(state))
@@ -52,19 +59,35 @@ class DetailsPlaybackTest {
     }
 
     @Test
-    fun `show details carry play from beginning intent into typed route`() {
-        val showId = UUID.fromString("12345678-1234-5678-9abc-123456789abc")
+    fun `show details target the selected episode and carry play from beginning intent`() {
+        val episode =
+            dummyEpisode.copy(id = UUID.fromString("12345678-1234-5678-9abc-123456789abc"))
+        val state = ShowState(playbackStart = PlaybackStart(episode, startFromBeginning = false))
 
         val route =
             requireNotNull(
                 showPlaybackRoute(
-                    showId = showId,
+                    state = state,
                     action = ShowAction.Play(startFromBeginning = true),
                 )
             )
 
-        assertEquals(showId.toString(), route.itemId)
-        assertEquals("Series", route.itemKind)
+        assertEquals(episode.id.toString(), route.itemId)
+        assertEquals("Episode", route.itemKind)
         assertTrue(route.startFromBeginning)
+    }
+
+    @Test
+    fun `forced restart playback does not expose a redundant restart action`() {
+        val state =
+            ShowState(
+                playbackStart =
+                    PlaybackStart(
+                        episode = dummyEpisode.copy(playbackPositionTicks = 900_000_000L),
+                        startFromBeginning = true,
+                    )
+            )
+
+        assertFalse(hasMeaningfulPlaybackStart(state))
     }
 }

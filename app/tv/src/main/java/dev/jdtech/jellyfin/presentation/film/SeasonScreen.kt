@@ -60,19 +60,16 @@ fun SeasonScreen(
     SeasonScreenLayout(
         state = state,
         onAction = { action ->
-            seasonPlaybackRoute(seasonId = seasonId, action = action)?.let(navigateToPlayer)
+            seasonPlaybackRoute(state = state, action = action)?.let(navigateToPlayer)
             viewModel.onAction(action)
         },
     )
 }
 
-internal fun seasonPlaybackRoute(seasonId: UUID, action: SeasonAction): PlayerRoute? =
+internal fun seasonPlaybackRoute(state: SeasonState, action: SeasonAction): PlayerRoute? =
     when (action) {
         is SeasonAction.Play ->
-            PlayerRoute.season(
-                itemId = seasonId,
-                startFromBeginning = action.startFromBeginning,
-            )
+            containerPlaybackRoute(state.playbackStart, action.startFromBeginning)
         is SeasonAction.NavigateToItem -> PlayerRoute.episode(itemId = action.item.id)
         else -> null
     }
@@ -99,7 +96,7 @@ private fun SeasonScreenLayout(state: SeasonState, onAction: (SeasonAction) -> U
                     Spacer(modifier = Modifier.height(MaterialTheme.spacings.default))
                     Button(
                         onClick = { onAction(SeasonAction.Play()) },
-                        enabled = state.episodes.isNotEmpty(),
+                        enabled = state.playbackStart != null,
                     ) {
                         Icon(
                             painter = painterResource(id = CoreR.drawable.ic_play),
@@ -114,7 +111,7 @@ private fun SeasonScreenLayout(state: SeasonState, onAction: (SeasonAction) -> U
                             onClick = {
                                 onAction(SeasonAction.Play(startFromBeginning = true))
                             },
-                            enabled = state.playbackStartEpisode != null,
+                            enabled = state.playbackStart != null,
                         ) {
                             Icon(
                                 painter = painterResource(id = CoreR.drawable.ic_rotate_ccw),

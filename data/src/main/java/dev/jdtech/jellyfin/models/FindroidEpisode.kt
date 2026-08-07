@@ -37,6 +37,8 @@ data class FindroidEpisode(
     override val trickplayInfo: Map<String, FindroidTrickplayInfo>?,
 ) : FindroidItem, FindroidSources
 
+fun FindroidEpisode.isAvailableForPlayback(): Boolean = !missing && canPlay
+
 suspend fun BaseItemDto.toFindroidEpisode(
     jellyfinRepository: JellyfinRepository,
     database: ServerDatabaseDao? = null,
