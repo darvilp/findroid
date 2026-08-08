@@ -1,5 +1,6 @@
 package dev.jdtech.jellyfin.presentation.film.components
 
+import android.view.KeyEvent
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -13,6 +14,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -34,6 +36,7 @@ fun EpisodeActionsDialog(
     onDismissRequest: () -> Unit,
 ) {
     val actionFocusRequester = remember { FocusRequester() }
+    val confirmationKeyGuard = remember { DialogConfirmationKeyGuard() }
 
     LaunchedEffect(Unit) { actionFocusRequester.requestFocus() }
 
@@ -58,7 +61,17 @@ fun EpisodeActionsDialog(
                 Spacer(modifier = Modifier.height(MaterialTheme.spacings.medium))
                 Button(
                     onClick = onTogglePlayed,
-                    modifier = Modifier.focusRequester(actionFocusRequester),
+                    modifier =
+                        Modifier.focusRequester(actionFocusRequester).onPreviewKeyEvent { event ->
+                            val nativeEvent = event.nativeKeyEvent
+                            confirmationKeyGuard.shouldConsume(
+                                confirmKey =
+                                    nativeEvent.keyCode == KeyEvent.KEYCODE_DPAD_CENTER ||
+                                        nativeEvent.keyCode == KeyEvent.KEYCODE_ENTER ||
+                                        nativeEvent.keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER,
+                                keyDown = nativeEvent.action == KeyEvent.ACTION_DOWN,
+                            )
+                        },
                 ) {
                     Icon(
                         painter = painterResource(CoreR.drawable.ic_check),
@@ -77,5 +90,16 @@ fun EpisodeActionsDialog(
                 }
             }
         }
+    }
+}
+
+internal class DialogConfirmationKeyGuard {
+    private var awaitingOpeningKeyUp = true
+
+    fun shouldConsume(confirmKey: Boolean, keyDown: Boolean): Boolean {
+        if (!confirmKey || !awaitingOpeningKeyUp) return false
+
+        if (!keyDown) awaitingOpeningKeyUp = false
+        return true
     }
 }
