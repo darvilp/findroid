@@ -5,6 +5,8 @@ import dev.jdtech.jellyfin.settings.domain.models.Preference
 import javax.inject.Inject
 import timber.log.Timber
 
+const val DEFAULT_MPV_AUDIO_OUTPUT = "audiotrack"
+
 class AppPreferences @Inject constructor(val sharedPreferences: SharedPreferences) {
     // Server
     val currentServer = Preference<String?>("pref_current_server", null)
@@ -30,7 +32,7 @@ class AppPreferences @Inject constructor(val sharedPreferences: SharedPreference
     val playerMpv = Preference("pref_player_mpv", false)
     val playerMpvHwdec = Preference("pref_player_mpv_hwdec", "mediacodec")
     val playerMpvVo = Preference("pref_player_mpv_vo", "gpu-next")
-    val playerMpvAo = Preference("pref_player_mpv_ao", "aaudio")
+    val playerMpvAo = Preference("pref_player_mpv_ao", DEFAULT_MPV_AUDIO_OUTPUT)
 
     // Player - gestures
     val playerGestures = Preference("pref_player_gestures", true)
