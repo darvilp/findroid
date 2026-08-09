@@ -35,6 +35,32 @@ fun EpisodeActionsDialog(
     onTogglePlayed: () -> Unit,
     onDismissRequest: () -> Unit,
 ) {
+    PlayedActionDialog(
+        title =
+            stringResource(
+                CoreR.string.episode_name,
+                episode.indexNumber,
+                episode.name,
+            ),
+        actionLabel =
+            stringResource(
+                when (episode.played) {
+                    true -> CoreR.string.unmark_as_played
+                    false -> CoreR.string.mark_as_played
+                }
+            ),
+        onAction = onTogglePlayed,
+        onDismissRequest = onDismissRequest,
+    )
+}
+
+@Composable
+internal fun PlayedActionDialog(
+    title: String,
+    actionLabel: String,
+    onAction: () -> Unit,
+    onDismissRequest: () -> Unit,
+) {
     val actionFocusRequester = remember { FocusRequester() }
     val confirmationKeyGuard = remember { DialogConfirmationKeyGuard() }
 
@@ -50,17 +76,12 @@ fun EpisodeActionsDialog(
         ) {
             Column(modifier = Modifier.padding(MaterialTheme.spacings.medium)) {
                 Text(
-                    text =
-                        stringResource(
-                            CoreR.string.episode_name,
-                            episode.indexNumber,
-                            episode.name,
-                        ),
+                    text = title,
                     style = MaterialTheme.typography.headlineMedium,
                 )
                 Spacer(modifier = Modifier.height(MaterialTheme.spacings.medium))
                 Button(
-                    onClick = onTogglePlayed,
+                    onClick = onAction,
                     modifier =
                         Modifier.focusRequester(actionFocusRequester).onPreviewKeyEvent { event ->
                             val nativeEvent = event.nativeKeyEvent
@@ -78,15 +99,7 @@ fun EpisodeActionsDialog(
                         contentDescription = null,
                     )
                     Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
-                    Text(
-                        text =
-                            stringResource(
-                                when (episode.played) {
-                                    true -> CoreR.string.unmark_as_played
-                                    false -> CoreR.string.mark_as_played
-                                }
-                            )
-                    )
+                    Text(text = actionLabel)
                 }
             }
         }

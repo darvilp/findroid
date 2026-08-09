@@ -9,7 +9,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRestorer
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -24,6 +30,7 @@ import dev.jdtech.jellyfin.models.FindroidEpisode
 import dev.jdtech.jellyfin.models.FindroidMovie
 import dev.jdtech.jellyfin.models.FindroidShow
 import dev.jdtech.jellyfin.presentation.film.components.HomeCarousel
+import dev.jdtech.jellyfin.presentation.film.components.HomeRow
 import dev.jdtech.jellyfin.presentation.film.components.HomeSection
 import dev.jdtech.jellyfin.presentation.film.components.HomeView
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
@@ -67,9 +74,28 @@ fun HomeScreen(
 @Composable
 private fun HomeScreenLayout(state: HomeState, onAction: (HomeAction) -> Unit) {
     val itemsPadding = PaddingValues(horizontal = MaterialTheme.spacings.large)
+    val fallbackFocusRequester = remember { FocusRequester() }
+    var pendingPlayedItemId by remember { mutableStateOf<UUID?>(null) }
+
+    LaunchedEffect(state, pendingPlayedItemId) {
+        val itemId = pendingPlayedItemId ?: return@LaunchedEffect
+        when {
+            state.error != null -> pendingPlayedItemId = null
+            shouldRestoreHomeFocusAfterPlayedAction(itemId, state) -> {
+                fallbackFocusRequester.requestFocus()
+                pendingPlayedItemId = null
+            }
+        }
+    }
+
+    val fallbackTarget = homeFallbackTarget(state)
+    val dispatchAction: (HomeAction) -> Unit = { action ->
+        if (action is HomeAction.MarkAsPlayed) pendingPlayedItemId = action.itemId
+        onAction(action)
+    }
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().focusRestorer(),
         contentPadding =
             PaddingValues(
                 top = MaterialTheme.spacings.extraSmall,
@@ -81,8 +107,17 @@ private fun HomeScreenLayout(state: HomeState, onAction: (HomeAction) -> Unit) {
             item(key = section.id) {
                 HomeCarousel(
                     items = section.items,
-                    onAction = onAction,
-                    modifier = Modifier.animateItem().padding(itemsPadding),
+                    onAction = dispatchAction,
+                    modifier =
+                        Modifier.animateItem()
+                            .padding(itemsPadding)
+                            .then(
+                                if (fallbackTarget?.row == HomeRow.Suggestions) {
+                                    Modifier.focusRequester(fallbackFocusRequester)
+                                } else {
+                                    Modifier
+                                }
+                            ),
                 )
             }
         }
@@ -91,8 +126,13 @@ private fun HomeScreenLayout(state: HomeState, onAction: (HomeAction) -> Unit) {
                 HomeSection(
                     section = section.homeSection,
                     itemsPadding = itemsPadding,
-                    onAction = onAction,
+                    onAction = dispatchAction,
                     modifier = Modifier.animateItem(),
+                    row = HomeRow.Resume,
+                    fallbackFocusRequester =
+                        fallbackFocusRequester.takeIf {
+                            fallbackTarget?.row == HomeRow.Resume
+                        },
                 )
             }
         }
@@ -101,20 +141,60 @@ private fun HomeScreenLayout(state: HomeState, onAction: (HomeAction) -> Unit) {
                 HomeSection(
                     section = section.homeSection,
                     itemsPadding = itemsPadding,
-                    onAction = onAction,
+                    onAction = dispatchAction,
                     modifier = Modifier.animateItem(),
+                    row = HomeRow.NextUp,
+                    fallbackFocusRequester =
+                        fallbackFocusRequester.takeIf {
+                            fallbackTarget?.row == HomeRow.NextUp
+                        },
                 )
             }
         }
-        items(state.views, key = { it.id }) { view ->
+        items(state.views, key = { view -> view.id }) { view ->
             HomeView(
                 view = view,
                 itemsPadding = itemsPadding,
-                onAction = onAction,
+                onAction = dispatchAction,
                 modifier = Modifier.animateItem(),
+                fallbackFocusRequester =
+                    fallbackFocusRequester.takeIf {
+                        fallbackTarget == HomeFallbackTarget(HomeRow.Latest, view.id)
+                    },
             )
         }
     }
+}
+
+internal data class HomeFallbackTarget(val row: HomeRow, val viewId: UUID? = null)
+
+internal fun homeFallbackTarget(state: HomeState): HomeFallbackTarget? =
+    when {
+        state.suggestionsSection?.items?.isNotEmpty() == true ->
+            HomeFallbackTarget(HomeRow.Suggestions)
+        state.resumeSection?.homeSection?.items?.isNotEmpty() == true ->
+            HomeFallbackTarget(HomeRow.Resume)
+        state.nextUpSection?.homeSection?.items?.isNotEmpty() == true ->
+            HomeFallbackTarget(HomeRow.NextUp)
+        else ->
+            state.views
+                .firstOrNull { it.view.items.isNotEmpty() }
+                ?.let { HomeFallbackTarget(HomeRow.Latest, it.id) }
+    }
+
+internal fun shouldRestoreHomeFocusAfterPlayedAction(itemId: UUID, state: HomeState): Boolean {
+    val playbackItemIds =
+        buildSet {
+            state.resumeSection?.homeSection?.items?.mapTo(this) { it.id }
+            state.nextUpSection?.homeSection?.items?.mapTo(this) { it.id }
+        }
+    val hasFocusableContent =
+        state.suggestionsSection?.items?.isNotEmpty() == true ||
+            state.resumeSection?.homeSection?.items?.isNotEmpty() == true ||
+            state.nextUpSection?.homeSection?.items?.isNotEmpty() == true ||
+            state.views.any { it.view.items.isNotEmpty() }
+
+    return itemId !in playbackItemIds && hasFocusableContent
 }
 
 @Preview(device = "id:tv_1080p")

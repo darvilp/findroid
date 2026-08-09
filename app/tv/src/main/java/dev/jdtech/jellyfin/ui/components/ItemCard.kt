@@ -37,6 +37,7 @@ fun ItemCard(
     item: FindroidItem,
     direction: Direction,
     onClick: (FindroidItem) -> Unit,
+    onLongClick: ((FindroidItem) -> Unit)? = null,
     modifier: Modifier = Modifier,
     surfaceModifier: Modifier = Modifier,
 ) {
@@ -48,6 +49,7 @@ fun ItemCard(
     Column(modifier = modifier.width(width.dp)) {
         Surface(
             onClick = { onClick(item) },
+            onLongClick = onLongClick?.let { { it(item) } },
             modifier = surfaceModifier,
             shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(10.dp)),
             border =

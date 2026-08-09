@@ -7,9 +7,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.res.stringResource
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
@@ -26,6 +28,7 @@ fun HomeView(
     itemsPadding: PaddingValues,
     onAction: (HomeAction) -> Unit,
     modifier: Modifier = Modifier,
+    fallbackFocusRequester: FocusRequester? = null,
 ) {
     Column(modifier = modifier) {
         Text(
@@ -38,11 +41,17 @@ fun HomeView(
             horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.default),
             contentPadding = itemsPadding,
         ) {
-            items(view.view.items, key = { it.id }) { item ->
+            itemsIndexed(view.view.items, key = { _, item -> item.id }) { index, item ->
                 ItemCard(
                     item = item,
                     direction = Direction.VERTICAL,
                     onClick = { onAction(HomeAction.OnItemClick(it)) },
+                    surfaceModifier =
+                        if (index == 0 && fallbackFocusRequester != null) {
+                            Modifier.focusRequester(fallbackFocusRequester)
+                        } else {
+                            Modifier
+                        },
                 )
             }
         }
