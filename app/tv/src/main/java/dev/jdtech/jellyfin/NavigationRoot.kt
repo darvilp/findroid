@@ -253,6 +253,7 @@ fun NavigationRoot(
                 itemId = UUID.fromString(route.itemId),
                 itemKind = route.itemKind,
                 startFromBeginning = route.startFromBeginning,
+                navigateBack = { navController.popBackStack() },
             )
         }
         composable<SettingsRoute> {

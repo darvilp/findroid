@@ -56,6 +56,7 @@ import dev.jdtech.jellyfin.player.local.domain.ChapterNavigationState
 import dev.jdtech.jellyfin.player.local.domain.PlaylistNavigationDirection
 import dev.jdtech.jellyfin.player.local.domain.PlaylistNavigationState
 import dev.jdtech.jellyfin.player.local.presentation.PlayerViewModel
+import dev.jdtech.jellyfin.player.local.presentation.PlayerEvents
 import dev.jdtech.jellyfin.presentation.theme.spacings
 import dev.jdtech.jellyfin.ui.components.player.VideoPlayerControlsLayout
 import dev.jdtech.jellyfin.ui.components.player.VideoPlayerMediaButton
@@ -80,12 +81,24 @@ fun PlayerScreen(
     itemId: UUID,
     itemKind: String,
     startFromBeginning: Boolean,
+    navigateBack: () -> Unit,
 ) {
     val viewModel = hiltViewModel<PlayerViewModel>()
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     val currentView = LocalView.current
     val lifecycleOwner = LocalLifecycleOwner.current
+
+    LaunchedEffect(lifecycleOwner, viewModel, navigateBack) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            viewModel.eventsChannelFlow.collect { event ->
+                when (event) {
+                    PlayerEvents.NavigateBack -> navigateBack()
+                    is PlayerEvents.IsPlayingChanged -> Unit
+                }
+            }
+        }
+    }
 
     DisposableEffect(Unit) {
         currentView.keepScreenOn = true

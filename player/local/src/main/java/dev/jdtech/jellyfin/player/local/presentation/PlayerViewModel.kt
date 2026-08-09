@@ -37,8 +37,10 @@ import dev.jdtech.jellyfin.player.local.domain.MediaSegmentPlayback
 import dev.jdtech.jellyfin.player.local.domain.MediaSegmentPlaybackDecision
 import dev.jdtech.jellyfin.player.local.domain.MediaSegmentPlaybackPreferences
 import dev.jdtech.jellyfin.player.local.domain.PlaylistManager
+import dev.jdtech.jellyfin.player.local.domain.PlaybackCompletionCoordinator
 import dev.jdtech.jellyfin.player.local.domain.PlaybackRestartController
 import dev.jdtech.jellyfin.player.local.domain.PlaybackRestartTarget
+import dev.jdtech.jellyfin.player.local.domain.PlaybackStopReport
 import dev.jdtech.jellyfin.player.local.domain.PlaylistNavigationController
 import dev.jdtech.jellyfin.player.local.domain.PlaylistNavigationDirection
 import dev.jdtech.jellyfin.player.local.domain.PlaylistNavigationState
@@ -115,6 +117,7 @@ constructor(
     private var currentMediaItemIndex = savedStateHandle["mediaItemIndex"] ?: 0
     private var playbackPosition: Long = savedStateHandle["position"] ?: 0
     private val mediaSegmentPlayback = MediaSegmentPlayback()
+    private val playbackCompletionCoordinator = PlaybackCompletionCoordinator()
     private val playbackRestartController = PlaybackRestartController()
     private val chapterNavigationController = ChapterNavigationController()
     private val playlistNavigationController = PlaylistNavigationController()
@@ -312,19 +315,18 @@ constructor(
 
     @OptIn(DelicateCoroutinesApi::class)
     private fun releasePlayer() {
-        val mediaId = player.currentMediaItem?.mediaId
-        val position = player.currentPosition
-        val duration = player.duration
+        val stopReport =
+            playbackCompletionCoordinator.releaseStopReport(
+                itemId = player.currentMediaItem?.mediaId?.toUuidOrNull(),
+                positionMs = player.currentPosition,
+                durationMs = player.duration,
+            )
         GlobalScope.launch {
             delay(200L)
             try {
-                if (mediaId != null && duration != C.TIME_UNSET) {
+                if (stopReport != null) {
                     Timber.d("Sending playback stop")
-                    repository.postPlaybackStop(
-                        UUID.fromString(mediaId),
-                        position.times(10000),
-                        position.div(duration.toFloat()).times(100).toInt(),
-                    )
+                    postPlaybackStop(stopReport)
                 }
             } catch (e: Exception) {
                 Timber.e(e)
@@ -539,7 +541,25 @@ constructor(
             }
             ExoPlayer.STATE_ENDED -> {
                 stateString = "ExoPlayer.STATE_ENDED     -"
-                eventsChannel.trySend(PlayerEvents.NavigateBack)
+                val completion =
+                    playbackCompletionCoordinator.claimTerminalCompletion(
+                        itemId = player.currentMediaItem?.mediaId?.toUuidOrNull(),
+                        positionMs = player.currentPosition,
+                        durationMs = player.duration,
+                    )
+                if (completion != null) {
+                    viewModelScope.launch {
+                        completion.stopReport?.let { stopReport ->
+                            try {
+                                postPlaybackStop(stopReport)
+                                playbackCompletionCoordinator.confirmReported(stopReport)
+                            } catch (e: Exception) {
+                                Timber.e(e)
+                            }
+                        }
+                        eventsChannel.send(PlayerEvents.NavigateBack)
+                    }
+                }
             }
         }
         Timber.d("Changed player state to $stateString")
@@ -651,6 +671,7 @@ constructor(
 
     fun beginPlaybackPass() {
         mediaSegmentPlayback.beginPlaybackPass()
+        playbackCompletionCoordinator.beginPlaybackPass()
         _uiState.update { it.copy(currentSegment = null) }
     }
 
@@ -674,7 +695,16 @@ constructor(
 
     private fun beginPlaybackPass(itemId: UUID) {
         mediaSegmentPlayback.beginPlaybackPass(itemId = itemId)
+        playbackCompletionCoordinator.beginPlaybackPass()
         _uiState.update { it.copy(currentSegment = null) }
+    }
+
+    private suspend fun postPlaybackStop(stopReport: PlaybackStopReport) {
+        repository.postPlaybackStop(
+            stopReport.itemId,
+            stopReport.positionTicks,
+            stopReport.playedPercentage,
+        )
     }
 
     private fun mediaSegmentPlaybackPreferences(): MediaSegmentPlaybackPreferences =
@@ -818,3 +848,5 @@ private fun Set<String>.toFindroidSegmentTypes(): Set<FindroidSegmentType> =
     mapNotNullTo(mutableSetOf()) { value ->
         FindroidSegmentType.entries.firstOrNull { type -> type.name == value }
     }
+
+private fun String.toUuidOrNull(): UUID? = runCatching(UUID::fromString).getOrNull()

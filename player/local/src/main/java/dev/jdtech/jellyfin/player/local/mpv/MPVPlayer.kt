@@ -358,7 +358,6 @@ class MPVPlayer(
                                     PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM,
                                 playbackState = STATE_ENDED,
                             )
-                            resetInternalState()
                         }
                     }
                 }
