@@ -254,6 +254,12 @@ fun NavigationRoot(
                 itemKind = route.itemKind,
                 startFromBeginning = route.startFromBeginning,
                 navigateBack = { navController.popBackStack() },
+                navigateToDetails = { target ->
+                    navController.navigate(playerDetailsRoute(target)) {
+                        popUpTo(backStackEntry.destination.id) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                },
             )
         }
         composable<SettingsRoute> {

@@ -38,6 +38,7 @@ import dev.jdtech.jellyfin.player.local.domain.MediaSegmentPlaybackDecision
 import dev.jdtech.jellyfin.player.local.domain.MediaSegmentPlaybackPreferences
 import dev.jdtech.jellyfin.player.local.domain.PlaylistManager
 import dev.jdtech.jellyfin.player.local.domain.PlaybackCompletionCoordinator
+import dev.jdtech.jellyfin.player.local.domain.PlaybackDetailsTarget
 import dev.jdtech.jellyfin.player.local.domain.PlaybackRestartController
 import dev.jdtech.jellyfin.player.local.domain.PlaybackRestartTarget
 import dev.jdtech.jellyfin.player.local.domain.PlaybackStopReport
@@ -83,6 +84,7 @@ constructor(
         MutableStateFlow(
             UiState(
                 currentItemTitle = "",
+                currentDetailsTarget = null,
                 currentSegment = null,
                 currentSkipButtonStringRes = R.string.player_controls_skip_intro,
                 currentTrickplay = null,
@@ -100,6 +102,7 @@ constructor(
 
     data class UiState(
         val currentItemTitle: String,
+        val currentDetailsTarget: PlaybackDetailsTarget?,
         val currentSegment: FindroidSegment?,
         val currentSkipButtonStringRes: Int,
         val currentTrickplay: Trickplay?,
@@ -398,15 +401,19 @@ constructor(
         Timber.d("Playing MediaItem: ${mediaItem?.mediaId}")
         savedStateHandle["mediaItemIndex"] = player.currentMediaItemIndex
         chapterNavigationController.reset()
+        val transitionedItemId = mediaItem?.mediaId?.toUuidOrNull()
         _uiState.update {
             it.copy(
                 currentSegment = null,
                 currentChapters = emptyList(),
+                currentDetailsTarget =
+                    transitionedItemId?.let(playlistManager::getDetailsTarget),
                 playlistNavigation = playlistNavigationController.state(playlistNavigationTarget),
             )
         }
         val transitionedMediaId = mediaItem?.mediaId ?: return
-        beginPlaybackPass(itemId = UUID.fromString(transitionedMediaId))
+        val itemId = transitionedItemId ?: return
+        beginPlaybackPass(itemId = itemId)
         viewModelScope.launch {
             try {
                 items

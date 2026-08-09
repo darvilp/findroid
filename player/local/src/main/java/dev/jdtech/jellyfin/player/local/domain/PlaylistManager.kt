@@ -201,6 +201,9 @@ class PlaylistManager @Inject internal constructor(private val repository: Jelly
         currentItemIndex = items.indexOfFirst { it.id == itemId }
     }
 
+    fun getDetailsTarget(itemId: UUID): PlaybackDetailsTarget? =
+        PlaybackDetailsTargetResolver.resolve(itemId = itemId, items = items)
+
     private suspend fun FindroidItem.toPlayerItem(
         mediaSourceIndex: Int?,
         playbackPosition: Long,

@@ -55,6 +55,7 @@ import dev.jdtech.jellyfin.player.local.domain.ChapterNavigationDirection
 import dev.jdtech.jellyfin.player.local.domain.ChapterNavigationState
 import dev.jdtech.jellyfin.player.local.domain.PlaylistNavigationDirection
 import dev.jdtech.jellyfin.player.local.domain.PlaylistNavigationState
+import dev.jdtech.jellyfin.player.local.domain.PlaybackDetailsTarget
 import dev.jdtech.jellyfin.player.local.presentation.PlayerViewModel
 import dev.jdtech.jellyfin.player.local.presentation.PlayerEvents
 import dev.jdtech.jellyfin.presentation.theme.spacings
@@ -82,6 +83,7 @@ fun PlayerScreen(
     itemKind: String,
     startFromBeginning: Boolean,
     navigateBack: () -> Unit,
+    navigateToDetails: (PlaybackDetailsTarget) -> Unit,
 ) {
     val viewModel = hiltViewModel<PlayerViewModel>()
     val uiState by viewModel.uiState.collectAsState()
@@ -301,6 +303,7 @@ fun PlayerScreen(
                 controls = {
                     VideoPlayerControls(
                         title = uiState.currentItemTitle,
+                        detailsTarget = uiState.currentDetailsTarget,
                         isPlaying = isPlaying,
                         contentCurrentPosition = currentPosition,
                         chapterNavigation = chapterNavigation,
@@ -315,6 +318,10 @@ fun PlayerScreen(
                         restartAvailable =
                             viewModel.isRestartCurrentItemAvailable(currentPosition),
                         onRestart = viewModel::restartCurrentItem,
+                        onViewDetails = { target ->
+                            viewModel.player.pause()
+                            navigateToDetails(target)
+                        },
                         onPreviousChapter = viewModel::seekToPreviousChapter,
                         onNextChapter = viewModel::seekToNextChapter,
                         onPreviousEpisode = viewModel::goToPreviousEpisode,
@@ -384,6 +391,7 @@ fun PlayerScreen(
 @Composable
 private fun VideoPlayerControls(
     title: String,
+    detailsTarget: PlaybackDetailsTarget?,
     isPlaying: Boolean,
     contentCurrentPosition: Long,
     chapterNavigation: ChapterNavigationState,
@@ -397,6 +405,7 @@ private fun VideoPlayerControls(
     remoteSeekController: RemoteSeekController,
     restartAvailable: Boolean,
     onRestart: () -> Unit,
+    onViewDetails: (PlaybackDetailsTarget) -> Unit,
     onPreviousChapter: () -> Unit,
     onNextChapter: () -> Unit,
     onPreviousEpisode: () -> Unit,
@@ -477,6 +486,14 @@ private fun VideoPlayerControls(
         },
         mediaActions = {
             Row(horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.medium)) {
+                VideoPlayerMediaButton(
+                    icon = painterResource(id = R.drawable.ic_info),
+                    state = state,
+                    contentDescription = stringResource(id = R.string.view_details),
+                    enabled = detailsTarget != null,
+                    onFocusChanged = clearEpisodeNavigationFocus,
+                    onClick = { detailsTarget?.let(onViewDetails) },
+                )
                 if (restartAvailable) {
                     VideoPlayerMediaButton(
                         icon = painterResource(id = R.drawable.ic_rotate_ccw),
