@@ -21,6 +21,9 @@ fun Tracks.toTrackOptions(type: Int): List<Track> =
                     codec = format.codecs ?: format.sampleMimeType,
                     selected = group.isTrackSelected(trackIndex),
                     supported = group.isTrackSupported(trackIndex),
+                    id = format.id,
+                    rawLanguage = format.language,
+                    channelCount = format.channelCount.takeIf { it != androidx.media3.common.Format.NO_VALUE },
                 )
             }
         }

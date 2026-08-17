@@ -1,6 +1,9 @@
 package dev.jdtech.jellyfin
 
+import dev.jdtech.jellyfin.models.InitialTrackSelection
 import java.util.UUID
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.descriptors.PrimitiveKind
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -49,5 +52,63 @@ class PlayerRouteTest {
         assertEquals(episodeId.toString(), route.itemId)
         assertEquals("Episode", route.itemKind)
         assertFalse(route.startFromBeginning)
+    }
+
+    @Test
+    fun `movie target carries an exact pre-playback track selection`() {
+        val selection =
+            InitialTrackSelection(
+                mediaSourceId = "source-1",
+                audioStreamIndex = 1,
+                subtitleStreamIndex = 4,
+            )
+
+        val route =
+            PlayerRoute.movie(
+                itemId = UUID.fromString("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"),
+                initialTrackSelection = selection,
+            )
+
+        assertEquals(selection, route.initialTrackSelection)
+    }
+
+    @Test
+    fun `track selection route values survive serialization`() {
+        val selections =
+            listOf(
+                null,
+                InitialTrackSelection(mediaSourceId = "source-1", audioStreamIndex = 1),
+                InitialTrackSelection(mediaSourceId = "source-1", subtitleStreamIndex = 4),
+                InitialTrackSelection(
+                    mediaSourceId = "source-1",
+                    subtitleStreamIndex = InitialTrackSelection.SUBTITLE_OFF,
+                ),
+            )
+
+        selections.forEach { selection ->
+            val route =
+                PlayerRoute.movie(
+                    itemId = UUID.fromString("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"),
+                    initialTrackSelection = selection,
+                )
+
+            val decoded = Json.decodeFromString<PlayerRoute>(Json.encodeToString(route))
+
+            assertEquals(route, decoded)
+            assertEquals(selection, decoded.initialTrackSelection)
+        }
+    }
+
+    @Test
+    fun `all serialized player route arguments use navigation supported primitives`() {
+        val descriptor = PlayerRoute.serializer().descriptor
+
+        repeat(descriptor.elementsCount) { index ->
+            val argument = descriptor.getElementDescriptor(index)
+            assertTrue(
+                "${descriptor.getElementName(index)} must be a primitive navigation argument",
+                argument.kind is PrimitiveKind,
+            )
+        }
     }
 }

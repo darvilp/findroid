@@ -67,6 +67,7 @@ import dev.jdtech.jellyfin.film.presentation.show.ShowViewModel
 import dev.jdtech.jellyfin.models.FindroidItem
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
+import dev.jdtech.jellyfin.presentation.film.components.PreplayTrackControls
 import dev.jdtech.jellyfin.ui.components.Direction
 import dev.jdtech.jellyfin.ui.components.ItemCard
 import dev.jdtech.jellyfin.utils.getShowDateString
@@ -78,18 +79,34 @@ fun ShowScreen(
     navigateToItem: (item: FindroidItem) -> Unit,
     navigateToPlayer: (route: PlayerRoute) -> Unit,
     viewModel: ShowViewModel = hiltViewModel(),
+    trackSelectionViewModel: PreplayTrackSelectionViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
 
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val trackSelectionState by trackSelectionViewModel.state.collectAsStateWithLifecycle()
 
-    LaunchedEffect(true) { viewModel.loadShow(showId) }
+    LaunchedEffect(showId) { viewModel.loadShow(showId) }
+    val referenceEpisode = state.playbackStart?.episode
+    LaunchedEffect(referenceEpisode?.id) {
+        referenceEpisode?.id?.let(trackSelectionViewModel::load)
+    }
 
     ShowScreenLayout(
         state = state,
+        trackSelectionState = trackSelectionState,
+        onSelectAudio = trackSelectionViewModel::selectAudio,
+        onSelectSubtitle = trackSelectionViewModel::selectSubtitle,
+        onRetryTracks = { referenceEpisode?.id?.let(trackSelectionViewModel::load) },
         onAction = { action ->
-            showPlaybackRoute(state = state, action = action)?.let(navigateToPlayer)
+            showPlaybackRoute(
+                    state = state,
+                    action = action,
+                    initialTrackSelection =
+                        trackSelectionState.initialTrackSelection(referenceEpisode?.id),
+                )
+                ?.let(navigateToPlayer)
             when (action) {
                 is ShowAction.PlayTrailer -> {
                     try {
@@ -107,7 +124,14 @@ fun ShowScreen(
 }
 
 @Composable
-private fun ShowScreenLayout(state: ShowState, onAction: (ShowAction) -> Unit) {
+private fun ShowScreenLayout(
+    state: ShowState,
+    trackSelectionState: PreplayTrackSelectionState,
+    onSelectAudio: (Int?) -> Unit,
+    onSelectSubtitle: (Int?) -> Unit,
+    onRetryTracks: () -> Unit,
+    onAction: (ShowAction) -> Unit,
+) {
     val focusRequester = remember { FocusRequester() }
     val configuration = LocalConfiguration.current
     val locale = configuration.locales.get(0)
@@ -342,6 +366,14 @@ private fun ShowScreenLayout(state: ShowState, onAction: (ShowAction) -> Unit) {
                                 }
                             }
                             Spacer(modifier = Modifier.height(MaterialTheme.spacings.default))
+                            PreplayTrackControls(
+                                state = trackSelectionState,
+                                referenceLabel = state.playbackStart?.episode?.trackReferenceLabel(),
+                                onSelectAudio = onSelectAudio,
+                                onSelectSubtitle = onSelectSubtitle,
+                                onRetry = onRetryTracks,
+                            )
+                            Spacer(modifier = Modifier.height(MaterialTheme.spacings.default))
                             Row(
                                 horizontalArrangement =
                                     Arrangement.spacedBy(MaterialTheme.spacings.large)
@@ -417,6 +449,13 @@ private fun ShowScreenLayout(state: ShowState, onAction: (ShowAction) -> Unit) {
 @Composable
 private fun ShowScreenLayoutPreview() {
     FindroidTheme {
-        ShowScreenLayout(state = ShowState(show = dummyShow, nextUp = dummyEpisode), onAction = {})
+        ShowScreenLayout(
+            state = ShowState(show = dummyShow, nextUp = dummyEpisode),
+            trackSelectionState = PreplayTrackSelectionState(),
+            onSelectAudio = {},
+            onSelectSubtitle = {},
+            onRetryTracks = {},
+            onAction = {},
+        )
     }
 }

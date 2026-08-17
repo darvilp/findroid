@@ -9,6 +9,9 @@ data class Track(
     val codec: String?,
     val selected: Boolean,
     val supported: Boolean,
+    val id: String? = null,
+    val rawLanguage: String? = null,
+    val channelCount: Int? = null,
 )
 
 /** Resolve an exact track identity from a possibly stale set of UI options. */

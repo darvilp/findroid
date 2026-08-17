@@ -6,6 +6,7 @@ import dev.jdtech.jellyfin.film.presentation.season.SeasonState
 import dev.jdtech.jellyfin.film.presentation.show.ShowAction
 import dev.jdtech.jellyfin.film.presentation.show.ShowState
 import dev.jdtech.jellyfin.core.presentation.dummy.dummyEpisode
+import dev.jdtech.jellyfin.models.InitialTrackSelection
 import java.util.UUID
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -89,5 +90,29 @@ class DetailsPlaybackTest {
             )
 
         assertFalse(hasMeaningfulPlaybackStart(state))
+    }
+
+    @Test
+    fun `show play carries the reference episode track selection`() {
+        val episode =
+            dummyEpisode.copy(id = UUID.fromString("12345678-1234-5678-9abc-123456789abc"))
+        val state = ShowState(playbackStart = PlaybackStart(episode, startFromBeginning = false))
+        val selection =
+            InitialTrackSelection(
+                mediaSourceId = "source-1",
+                audioStreamIndex = 2,
+                subtitleStreamIndex = InitialTrackSelection.SUBTITLE_OFF,
+            )
+
+        val route =
+            requireNotNull(
+                showPlaybackRoute(
+                    state = state,
+                    action = ShowAction.Play(),
+                    initialTrackSelection = selection,
+                )
+            )
+
+        assertEquals(selection, route.initialTrackSelection)
     }
 }

@@ -17,4 +17,8 @@ data class PlayerItem(
     val externalSubtitles: List<ExternalSubtitle> = emptyList(),
     val chapters: List<PlayerChapter> = emptyList(),
     val trickplayInfo: TrickplayInfo? = null,
+    val initialAudioStreamIndex: Int? = null,
+    val initialSubtitleStreamIndex: Int? = null,
+    val defaultAudioStreamIndex: Int? = null,
+    val defaultSubtitleStreamIndex: Int? = null,
 ) : Parcelable

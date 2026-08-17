@@ -41,9 +41,11 @@ import dev.jdtech.jellyfin.film.presentation.season.SeasonAction
 import dev.jdtech.jellyfin.film.presentation.season.SeasonState
 import dev.jdtech.jellyfin.film.presentation.season.SeasonViewModel
 import dev.jdtech.jellyfin.models.FindroidEpisode
+import dev.jdtech.jellyfin.models.InitialTrackSelection
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
 import dev.jdtech.jellyfin.presentation.film.components.EpisodeActionsDialog
+import dev.jdtech.jellyfin.presentation.film.components.PreplayTrackControls
 import dev.jdtech.jellyfin.ui.components.EpisodeCard
 import java.util.UUID
 
@@ -52,24 +54,48 @@ fun SeasonScreen(
     seasonId: UUID,
     navigateToPlayer: (route: PlayerRoute) -> Unit,
     viewModel: SeasonViewModel = hiltViewModel(),
+    trackSelectionViewModel: PreplayTrackSelectionViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
+    val trackSelectionState by trackSelectionViewModel.state.collectAsState()
 
-    LaunchedEffect(true) { viewModel.loadSeason(seasonId = seasonId) }
+    LaunchedEffect(seasonId) { viewModel.loadSeason(seasonId = seasonId) }
+    val referenceEpisode = state.playbackStart?.episode
+    LaunchedEffect(referenceEpisode?.id) {
+        referenceEpisode?.id?.let(trackSelectionViewModel::load)
+    }
 
     SeasonScreenLayout(
         state = state,
+        trackSelectionState = trackSelectionState,
+        onSelectAudio = trackSelectionViewModel::selectAudio,
+        onSelectSubtitle = trackSelectionViewModel::selectSubtitle,
+        onRetryTracks = { referenceEpisode?.id?.let(trackSelectionViewModel::load) },
         onAction = { action ->
-            seasonPlaybackRoute(state = state, action = action)?.let(navigateToPlayer)
+            seasonPlaybackRoute(
+                    state = state,
+                    action = action,
+                    initialTrackSelection =
+                        trackSelectionState.initialTrackSelection(referenceEpisode?.id),
+                )
+                ?.let(navigateToPlayer)
             viewModel.onAction(action)
         },
     )
 }
 
-internal fun seasonPlaybackRoute(state: SeasonState, action: SeasonAction): PlayerRoute? =
+internal fun seasonPlaybackRoute(
+    state: SeasonState,
+    action: SeasonAction,
+    initialTrackSelection: InitialTrackSelection? = null,
+): PlayerRoute? =
     when (action) {
         is SeasonAction.Play ->
-            containerPlaybackRoute(state.playbackStart, action.startFromBeginning)
+            containerPlaybackRoute(
+                playbackStart = state.playbackStart,
+                startFromBeginning = action.startFromBeginning,
+                initialTrackSelection = initialTrackSelection,
+            )
         is SeasonAction.NavigateToItem -> PlayerRoute.episode(itemId = action.item.id)
         else -> null
     }
@@ -78,7 +104,14 @@ internal fun episodePlayedAction(episode: FindroidEpisode): SeasonAction.SetEpis
     SeasonAction.SetEpisodePlayed(episodeId = episode.id, played = !episode.played)
 
 @Composable
-private fun SeasonScreenLayout(state: SeasonState, onAction: (SeasonAction) -> Unit) {
+private fun SeasonScreenLayout(
+    state: SeasonState,
+    trackSelectionState: PreplayTrackSelectionState,
+    onSelectAudio: (Int?) -> Unit,
+    onSelectSubtitle: (Int?) -> Unit,
+    onRetryTracks: () -> Unit,
+    onAction: (SeasonAction) -> Unit,
+) {
     Box(modifier = Modifier.fillMaxSize()) {
         state.season?.let { season ->
             Row(modifier = Modifier.fillMaxSize()) {
@@ -121,6 +154,14 @@ private fun SeasonScreenLayout(state: SeasonState, onAction: (SeasonAction) -> U
                             Text(text = stringResource(id = CoreR.string.play_from_beginning))
                         }
                     }
+                    Spacer(modifier = Modifier.height(MaterialTheme.spacings.small))
+                    PreplayTrackControls(
+                        state = trackSelectionState,
+                        referenceLabel = state.playbackStart?.episode?.trackReferenceLabel(),
+                        onSelectAudio = onSelectAudio,
+                        onSelectSubtitle = onSelectSubtitle,
+                        onRetry = onRetryTracks,
+                    )
                 }
                 LazyColumn(
                     contentPadding =
@@ -181,6 +222,10 @@ private fun SeasonScreenLayoutPreview() {
     FindroidTheme {
         SeasonScreenLayout(
             state = SeasonState(season = dummySeason, episodes = dummyEpisodes),
+            trackSelectionState = PreplayTrackSelectionState(),
+            onSelectAudio = {},
+            onSelectSubtitle = {},
+            onRetryTracks = {},
             onAction = {},
         )
     }

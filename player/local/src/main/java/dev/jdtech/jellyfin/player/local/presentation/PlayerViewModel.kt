@@ -21,6 +21,7 @@ import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.jdtech.jellyfin.models.FindroidSegment
 import dev.jdtech.jellyfin.models.FindroidSegmentType
+import dev.jdtech.jellyfin.models.InitialTrackSelection
 import dev.jdtech.jellyfin.player.core.domain.models.PlayerChapter
 import dev.jdtech.jellyfin.player.core.domain.models.PlayerItem
 import dev.jdtech.jellyfin.player.core.domain.models.Track
@@ -32,6 +33,9 @@ import dev.jdtech.jellyfin.player.local.domain.ChapterNavigationController
 import dev.jdtech.jellyfin.player.local.domain.ChapterNavigationDirection
 import dev.jdtech.jellyfin.player.local.domain.ChapterNavigationState
 import dev.jdtech.jellyfin.player.local.domain.ChapterSeekTarget
+import dev.jdtech.jellyfin.player.local.domain.InitialTrackOverride
+import dev.jdtech.jellyfin.player.local.domain.InitialTrackOverrideResolver
+import dev.jdtech.jellyfin.player.local.domain.InitialTrackApplicationState
 import dev.jdtech.jellyfin.player.local.domain.MediaSegmentAutoSkipMode
 import dev.jdtech.jellyfin.player.local.domain.MediaSegmentPlayback
 import dev.jdtech.jellyfin.player.local.domain.MediaSegmentPlaybackDecision
@@ -57,6 +61,7 @@ import kotlin.math.ceil
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -124,6 +129,8 @@ constructor(
     private val playbackRestartController = PlaybackRestartController()
     private val chapterNavigationController = ChapterNavigationController()
     private val playlistNavigationController = PlaylistNavigationController()
+    private val initialTrackApplicationState = InitialTrackApplicationState()
+    private var adjacentTrackRefreshJob: Job? = null
 
     // Segments preferences
     var segmentsSkipButton: Boolean = false
@@ -241,7 +248,12 @@ constructor(
             override fun pause() = player.pause()
         }
 
-    fun initializePlayer(itemId: UUID, itemKind: String, startFromBeginning: Boolean) {
+    fun initializePlayer(
+        itemId: UUID,
+        itemKind: String,
+        startFromBeginning: Boolean,
+        initialTrackSelection: InitialTrackSelection? = null,
+    ) {
         player.addListener(this)
         updateTrackOptions(player.currentTracks)
 
@@ -253,6 +265,7 @@ constructor(
                         itemKind = BaseItemKind.fromName(itemKind),
                         mediaSourceIndex = null,
                         startFromBeginning = startFromBeginning,
+                        initialTrackSelection = initialTrackSelection,
                     )
                 } catch (e: Exception) {
                     Timber.e(e)
@@ -296,6 +309,7 @@ constructor(
         val mediaSubtitles =
             externalSubtitles.map { externalSubtitle ->
                 MediaItem.SubtitleConfiguration.Builder(externalSubtitle.uri)
+                    .setId(externalSubtitle.streamIndex?.toString())
                     .setLabel(
                         externalSubtitle.title.ifBlank { application.getString(R.string.external) }
                     )
@@ -355,6 +369,7 @@ constructor(
                         itemId,
                         player.currentPosition.times(10000),
                         !player.isPlaying,
+                        currentPlaybackTrackReport(itemId),
                     )
                 } catch (e: Exception) {
                     Timber.e(e)
@@ -413,6 +428,7 @@ constructor(
         }
         val transitionedMediaId = mediaItem?.mediaId ?: return
         val itemId = transitionedItemId ?: return
+        initialTrackApplicationState.reset(itemId)
         beginPlaybackPass(itemId = itemId)
         viewModelScope.launch {
             try {
@@ -439,7 +455,10 @@ constructor(
                             )
                         }
 
-                        repository.postPlaybackStart(item.itemId)
+                        repository.postPlaybackStart(
+                            item.itemId,
+                            playlistManager.getPlaybackTrackReport(item.itemId),
+                        )
 
                         if (segmentsSkipButton || segmentsAutoSkip) {
                             getSegments(item.itemId)
@@ -516,6 +535,7 @@ constructor(
                         UUID.fromString(mediaId),
                         position.times(10000),
                         position.div(duration.toFloat()).times(100).toInt(),
+                        currentPlaybackTrackReport(UUID.fromString(mediaId)),
                     )
                 } catch (e: Exception) {
                     Timber.e(e)
@@ -598,6 +618,8 @@ constructor(
                     .setTrackTypeDisabled(trackType, true)
                     .build()
             updateSelectedTrack(trackType, groupIndex = null, trackIndex = null)
+            rememberRuntimeTrackSelection(trackType = trackType, selectedTrack = null)
+            refreshAdjacentTrackSelections()
             return true
         }
 
@@ -624,11 +646,144 @@ constructor(
                 .setTrackTypeDisabled(trackType, false)
                 .build()
         updateSelectedTrack(trackType, groupIndex, trackIndex)
+        rememberRuntimeTrackSelection(trackType = trackType, selectedTrack = requestedTrack)
+        refreshAdjacentTrackSelections()
         return true
     }
 
     override fun onTracksChanged(tracks: Tracks) {
         updateTrackOptions(tracks)
+        applyInitialTrackSelection(tracks)
+    }
+
+    private fun applyInitialTrackSelection(tracks: Tracks) {
+        val itemId = player.currentMediaItem?.mediaId?.toUuidOrNull() ?: return
+        if (tracks.groups.isEmpty()) return
+        val item = items.firstOrNull { it.itemId == itemId } ?: return
+        val runtimeTracks =
+            tracks.toTrackOptions(C.TRACK_TYPE_AUDIO) + tracks.toTrackOptions(C.TRACK_TYPE_TEXT)
+        val overrides =
+            InitialTrackOverrideResolver.resolve(
+                item = item,
+                jellyfinStreams = playlistManager.getMediaStreams(itemId),
+                runtimeTracks = runtimeTracks,
+            )
+        val resolvedTypes = overrides.mapTo(mutableSetOf()) { it.trackType }
+        val unresolved =
+            buildMap {
+                item.initialAudioStreamIndex?.let { put(C.TRACK_TYPE_AUDIO, it) }
+                item.initialSubtitleStreamIndex
+                    ?.takeUnless { it == InitialTrackSelection.SUBTITLE_OFF }
+                    ?.let { put(C.TRACK_TYPE_TEXT, it) }
+            }
+        unresolved
+            .filterKeys {
+                it !in resolvedTypes &&
+                    !initialTrackApplicationState.isApplied(itemId, it) &&
+                    initialTrackApplicationState.markFailureLogged(itemId, it)
+            }
+            .forEach { (trackType, streamIndex) ->
+                Timber.d(
+                    "Initial runtime track unavailable item=%s source=%s stream=%s type=%s",
+                    itemId,
+                    item.mediaSourceId,
+                    streamIndex,
+                    trackType,
+                )
+            }
+        overrides
+            .filter { !initialTrackApplicationState.isApplied(itemId, it.trackType) }
+            .forEach { override ->
+            when (override) {
+                is InitialTrackOverride.Select -> {
+                    if (canApplyExactTrackOverride(override.track)) {
+                        // Track parameter updates may synchronously emit another callback.
+                        initialTrackApplicationState.markApplied(itemId, override.trackType)
+                        applyExactTrackOverride(override.track)
+                        rememberRuntimeTrackSelection(
+                            trackType = override.track.type,
+                            selectedTrack = override.track,
+                        )
+                        refreshAdjacentTrackSelections()
+                    }
+                }
+                is InitialTrackOverride.Disable -> {
+                    // Track parameter updates may synchronously emit another callback.
+                    initialTrackApplicationState.markApplied(itemId, override.trackType)
+                    disableTrackType(override.trackType)
+                    rememberRuntimeTrackSelection(trackType = override.trackType, selectedTrack = null)
+                    refreshAdjacentTrackSelections()
+                }
+            }
+        }
+    }
+
+    private val InitialTrackOverride.trackType: Int
+        get() =
+            when (this) {
+                is InitialTrackOverride.Select -> track.type
+                is InitialTrackOverride.Disable -> trackType
+            }
+
+    private fun canApplyExactTrackOverride(track: Track): Boolean {
+        val group = player.currentTracks.groups.getOrNull(track.groupIndex) ?: return false
+        return track.supported && group.isTrackSupported(track.trackIndex)
+    }
+
+    private fun applyExactTrackOverride(track: Track) {
+        val group = player.currentTracks.groups[track.groupIndex]
+        player.trackSelectionParameters =
+            player.trackSelectionParameters
+                .buildUpon()
+                .setOverrideForType(
+                    TrackSelectionOverride(group.mediaTrackGroup, track.trackIndex)
+                )
+                .setTrackTypeDisabled(track.type, false)
+                .build()
+    }
+
+    private fun disableTrackType(trackType: Int) {
+        player.trackSelectionParameters =
+            player.trackSelectionParameters
+                .buildUpon()
+                .clearOverridesOfType(trackType)
+                .setTrackTypeDisabled(trackType, true)
+                .build()
+    }
+
+    private fun rememberRuntimeTrackSelection(trackType: Int, selectedTrack: Track?) {
+        val itemId = player.currentMediaItem?.mediaId?.toUuidOrNull() ?: return
+        playlistManager.rememberRuntimeTrackSelection(
+            itemId = itemId,
+            trackType = trackType,
+            selectedTrack = selectedTrack,
+            runtimeTracks = currentTrackOptions(trackType),
+        )
+    }
+
+    private fun refreshAdjacentTrackSelections() {
+        val anchorMediaId = player.currentMediaItem?.mediaId ?: return
+        val adjacentItemIds =
+            listOf(player.currentMediaItemIndex - 1, player.currentMediaItemIndex + 1)
+                .filter { it in 0 until player.mediaItemCount }
+                .mapNotNull { player.getMediaItemAt(it).mediaId.toUuidOrNull() }
+        adjacentTrackRefreshJob?.cancel()
+        adjacentTrackRefreshJob =
+            viewModelScope.launch {
+                adjacentItemIds.forEach { itemId ->
+                    val rebuilt = playlistManager.rebuildPlayerItem(itemId) ?: return@forEach
+                    if (player.currentMediaItem?.mediaId != anchorMediaId) return@launch
+                    val timelineIndex =
+                        (0 until player.mediaItemCount).firstOrNull {
+                            player.getMediaItemAt(it).mediaId == itemId.toString()
+                        } ?: return@forEach
+                    items.indexOfFirst { it.itemId == itemId }
+                        .takeIf { it >= 0 }
+                        ?.let { items[it] = rebuilt }
+                    initialTrackApplicationState.reset(itemId)
+                    player.replaceMediaItem(timelineIndex, rebuilt.toMediaItem())
+                }
+            }
     }
 
     private fun updateTrackOptions(tracks: Tracks) {
@@ -711,8 +866,20 @@ constructor(
             stopReport.itemId,
             stopReport.positionTicks,
             stopReport.playedPercentage,
+            currentPlaybackTrackReport(stopReport.itemId),
         )
     }
+
+    private fun currentPlaybackTrackReport(itemId: UUID) =
+        if (player.currentMediaItem?.mediaId == itemId.toString()) {
+            playlistManager.getPlaybackTrackReport(
+                itemId = itemId,
+                audioTracks = currentTrackOptions(C.TRACK_TYPE_AUDIO),
+                subtitleTracks = currentTrackOptions(C.TRACK_TYPE_TEXT),
+            )
+        } else {
+            playlistManager.getPlaybackTrackReport(itemId)
+        }
 
     private fun mediaSegmentPlaybackPreferences(): MediaSegmentPlaybackPreferences =
         MediaSegmentPlaybackPreferences(

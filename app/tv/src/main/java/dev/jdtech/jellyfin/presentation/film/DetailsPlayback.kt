@@ -8,6 +8,7 @@ import dev.jdtech.jellyfin.film.presentation.movie.MovieAction
 import dev.jdtech.jellyfin.film.presentation.season.SeasonState
 import dev.jdtech.jellyfin.film.presentation.show.ShowAction
 import dev.jdtech.jellyfin.film.presentation.show.ShowState
+import dev.jdtech.jellyfin.models.InitialTrackSelection
 import java.util.UUID
 
 internal fun hasMeaningfulPlaybackStart(state: ShowState): Boolean =
@@ -21,30 +22,45 @@ private fun hasMeaningfulPlaybackStart(playbackStart: PlaybackStart?): Boolean =
         !start.startFromBeginning && hasMeaningfulSavedProgress(start.episode.playbackPositionTicks)
     } == true
 
-internal fun moviePlaybackRoute(movieId: UUID, action: MovieAction): PlayerRoute? =
+internal fun moviePlaybackRoute(
+    movieId: UUID,
+    action: MovieAction,
+    initialTrackSelection: InitialTrackSelection? = null,
+): PlayerRoute? =
     when (action) {
         is MovieAction.Play ->
             PlayerRoute.movie(
                 itemId = movieId,
                 startFromBeginning = action.startFromBeginning,
+                initialTrackSelection = initialTrackSelection,
             )
         else -> null
     }
 
-internal fun showPlaybackRoute(state: ShowState, action: ShowAction): PlayerRoute? =
+internal fun showPlaybackRoute(
+    state: ShowState,
+    action: ShowAction,
+    initialTrackSelection: InitialTrackSelection? = null,
+): PlayerRoute? =
     when (action) {
         is ShowAction.Play ->
-            containerPlaybackRoute(state.playbackStart, action.startFromBeginning)
+            containerPlaybackRoute(
+                playbackStart = state.playbackStart,
+                startFromBeginning = action.startFromBeginning,
+                initialTrackSelection = initialTrackSelection,
+            )
         else -> null
     }
 
 internal fun containerPlaybackRoute(
     playbackStart: PlaybackStart?,
     startFromBeginning: Boolean,
+    initialTrackSelection: InitialTrackSelection? = null,
 ): PlayerRoute? =
     playbackStart?.let { start ->
         PlayerRoute.episode(
             itemId = start.episode.id,
             startFromBeginning = start.shouldStartFromBeginning(startFromBeginning),
+            initialTrackSelection = initialTrackSelection,
         )
     }

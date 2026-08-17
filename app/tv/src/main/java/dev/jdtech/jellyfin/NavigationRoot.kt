@@ -9,6 +9,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
 import dev.jdtech.jellyfin.models.CollectionType
 import dev.jdtech.jellyfin.models.FindroidSeason
+import dev.jdtech.jellyfin.models.InitialTrackSelection
 import dev.jdtech.jellyfin.presentation.film.LibraryScreen
 import dev.jdtech.jellyfin.presentation.film.SeasonScreen
 import dev.jdtech.jellyfin.presentation.film.ShowScreen
@@ -77,34 +78,82 @@ data class PlayerRoute private constructor(
     val itemId: String,
     val itemKind: String,
     val startFromBeginning: Boolean = false,
+    private val initialMediaSourceId: String? = null,
+    private val initialAudioStreamIndex: Int? = null,
+    private val initialSubtitleStreamIndex: Int? = null,
 ) {
+    val initialTrackSelection: InitialTrackSelection?
+        get() =
+            initialMediaSourceId?.let { mediaSourceId ->
+                InitialTrackSelection(
+                    mediaSourceId = mediaSourceId,
+                    audioStreamIndex = initialAudioStreamIndex,
+                    subtitleStreamIndex = initialSubtitleStreamIndex,
+                )
+            }
+
     companion object {
-        fun movie(itemId: UUID, startFromBeginning: Boolean = false) =
-            PlayerRoute(
+        fun movie(
+            itemId: UUID,
+            startFromBeginning: Boolean = false,
+            initialTrackSelection: InitialTrackSelection? = null,
+        ) =
+            create(
                 itemId = itemId.toString(),
                 itemKind = BaseItemKind.MOVIE.serialName,
                 startFromBeginning = startFromBeginning,
+                initialTrackSelection = initialTrackSelection,
             )
 
-        fun series(itemId: UUID, startFromBeginning: Boolean = false) =
-            PlayerRoute(
+        fun series(
+            itemId: UUID,
+            startFromBeginning: Boolean = false,
+            initialTrackSelection: InitialTrackSelection? = null,
+        ) =
+            create(
                 itemId = itemId.toString(),
                 itemKind = BaseItemKind.SERIES.serialName,
                 startFromBeginning = startFromBeginning,
+                initialTrackSelection = initialTrackSelection,
             )
 
-        fun season(itemId: UUID, startFromBeginning: Boolean = false) =
-            PlayerRoute(
+        fun season(
+            itemId: UUID,
+            startFromBeginning: Boolean = false,
+            initialTrackSelection: InitialTrackSelection? = null,
+        ) =
+            create(
                 itemId = itemId.toString(),
                 itemKind = BaseItemKind.SEASON.serialName,
                 startFromBeginning = startFromBeginning,
+                initialTrackSelection = initialTrackSelection,
             )
 
-        fun episode(itemId: UUID, startFromBeginning: Boolean = false) =
-            PlayerRoute(
+        fun episode(
+            itemId: UUID,
+            startFromBeginning: Boolean = false,
+            initialTrackSelection: InitialTrackSelection? = null,
+        ) =
+            create(
                 itemId = itemId.toString(),
                 itemKind = BaseItemKind.EPISODE.serialName,
                 startFromBeginning = startFromBeginning,
+                initialTrackSelection = initialTrackSelection,
+            )
+
+        private fun create(
+            itemId: String,
+            itemKind: String,
+            startFromBeginning: Boolean,
+            initialTrackSelection: InitialTrackSelection?,
+        ) =
+            PlayerRoute(
+                itemId = itemId,
+                itemKind = itemKind,
+                startFromBeginning = startFromBeginning,
+                initialMediaSourceId = initialTrackSelection?.mediaSourceId,
+                initialAudioStreamIndex = initialTrackSelection?.audioStreamIndex,
+                initialSubtitleStreamIndex = initialTrackSelection?.subtitleStreamIndex,
             )
     }
 }
@@ -253,6 +302,7 @@ fun NavigationRoot(
                 itemId = UUID.fromString(route.itemId),
                 itemKind = route.itemKind,
                 startFromBeginning = route.startFromBeginning,
+                initialTrackSelection = route.initialTrackSelection,
                 navigateBack = { navController.popBackStack() },
                 navigateToDetails = { target ->
                     navController.navigate(playerDetailsRoute(target)) {

@@ -10,6 +10,8 @@ import dev.jdtech.jellyfin.models.FindroidSeason
 import dev.jdtech.jellyfin.models.FindroidSegment
 import dev.jdtech.jellyfin.models.FindroidShow
 import dev.jdtech.jellyfin.models.FindroidSource
+import dev.jdtech.jellyfin.models.InitialTrackSelection
+import dev.jdtech.jellyfin.models.PlaybackTrackReport
 import dev.jdtech.jellyfin.models.SortBy
 import dev.jdtech.jellyfin.models.SortOrder
 import java.util.UUID
@@ -86,7 +88,11 @@ interface JellyfinRepository {
         offline: Boolean = false,
     ): List<FindroidEpisode>
 
-    suspend fun getMediaSources(itemId: UUID, includePath: Boolean = false): List<FindroidSource>
+    suspend fun getMediaSources(
+        itemId: UUID,
+        includePath: Boolean = false,
+        initialTrackSelection: InitialTrackSelection? = null,
+    ): List<FindroidSource>
 
     suspend fun getStreamUrl(itemId: UUID, mediaSourceId: String): String
 
@@ -96,11 +102,21 @@ interface JellyfinRepository {
 
     suspend fun postCapabilities()
 
-    suspend fun postPlaybackStart(itemId: UUID)
+    suspend fun postPlaybackStart(itemId: UUID, trackReport: PlaybackTrackReport? = null)
 
-    suspend fun postPlaybackStop(itemId: UUID, positionTicks: Long, playedPercentage: Int)
+    suspend fun postPlaybackStop(
+        itemId: UUID,
+        positionTicks: Long,
+        playedPercentage: Int,
+        trackReport: PlaybackTrackReport? = null,
+    )
 
-    suspend fun postPlaybackProgress(itemId: UUID, positionTicks: Long, isPaused: Boolean)
+    suspend fun postPlaybackProgress(
+        itemId: UUID,
+        positionTicks: Long,
+        isPaused: Boolean,
+        trackReport: PlaybackTrackReport? = null,
+    )
 
     suspend fun markAsFavorite(itemId: UUID)
 
