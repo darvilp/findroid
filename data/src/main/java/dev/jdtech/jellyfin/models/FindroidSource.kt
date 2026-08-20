@@ -15,6 +15,8 @@ data class FindroidSource(
     val size: Long,
     val mediaStreams: List<FindroidMediaStream>,
     val downloadId: Long? = null,
+    val defaultAudioStreamIndex: Int? = null,
+    val defaultSubtitleStreamIndex: Int? = null,
 )
 
 suspend fun MediaSourceInfo.toFindroidSource(
@@ -42,6 +44,8 @@ suspend fun MediaSourceInfo.toFindroidSource(
         size = size ?: 0,
         mediaStreams =
             mediaStreams?.map { it.toFindroidMediaStream(jellyfinRepository) } ?: emptyList(),
+        defaultAudioStreamIndex = defaultAudioStreamIndex,
+        defaultSubtitleStreamIndex = defaultSubtitleStreamIndex,
     )
 }
 

@@ -15,6 +15,8 @@ import dev.jdtech.jellyfin.models.FindroidSeason
 import dev.jdtech.jellyfin.models.FindroidSegment
 import dev.jdtech.jellyfin.models.FindroidShow
 import dev.jdtech.jellyfin.models.FindroidSource
+import dev.jdtech.jellyfin.models.InitialTrackSelection
+import dev.jdtech.jellyfin.models.PlaybackTrackReport
 import dev.jdtech.jellyfin.models.SortBy
 import dev.jdtech.jellyfin.models.SortOrder
 import dev.jdtech.jellyfin.models.toFindroidCollection
@@ -304,7 +306,11 @@ class JellyfinRepositoryImpl(
             }
         }
 
-    override suspend fun getMediaSources(itemId: UUID, includePath: Boolean): List<FindroidSource> =
+    override suspend fun getMediaSources(
+        itemId: UUID,
+        includePath: Boolean,
+        initialTrackSelection: InitialTrackSelection?,
+    ): List<FindroidSource> =
         withContext(Dispatchers.IO) {
             val sources = mutableListOf<FindroidSource>()
             sources.addAll(
@@ -313,6 +319,9 @@ class JellyfinRepositoryImpl(
                         itemId,
                         PlaybackInfoDto(
                             userId = jellyfinApi.userId!!,
+                            mediaSourceId = initialTrackSelection?.mediaSourceId,
+                            audioStreamIndex = initialTrackSelection?.audioStreamIndex,
+                            subtitleStreamIndex = initialTrackSelection?.subtitleStreamIndex,
                             deviceProfile =
                                 DeviceProfile(
                                     name = "Direct play all",
@@ -329,6 +338,9 @@ class JellyfinRepositoryImpl(
                                         ),
                                 ),
                             maxStreamingBitrate = 1_000_000_000,
+                            enableDirectPlay = true,
+                            enableDirectStream = false,
+                            enableTranscoding = false,
                         ),
                     )
                     .content
@@ -418,12 +430,15 @@ class JellyfinRepositoryImpl(
         }
     }
 
-    override suspend fun postPlaybackStart(itemId: UUID) {
+    override suspend fun postPlaybackStart(itemId: UUID, trackReport: PlaybackTrackReport?) {
         Timber.d("Sending start $itemId")
         withContext(Dispatchers.IO) {
             jellyfinApi.playStateApi.reportPlaybackStart(
                 PlaybackStartInfo(
                     itemId = itemId,
+                    mediaSourceId = trackReport?.mediaSourceId,
+                    audioStreamIndex = trackReport?.audioStreamIndex,
+                    subtitleStreamIndex = trackReport?.subtitleStreamIndex,
                     canSeek = true,
                     isPaused = false,
                     isMuted = false,
@@ -439,6 +454,7 @@ class JellyfinRepositoryImpl(
         itemId: UUID,
         positionTicks: Long,
         playedPercentage: Int,
+        trackReport: PlaybackTrackReport?,
     ) {
         Timber.d("Sending stop $itemId")
         withContext(Dispatchers.IO) {
@@ -458,7 +474,12 @@ class JellyfinRepositoryImpl(
             }
             try {
                 jellyfinApi.playStateApi.reportPlaybackStopped(
-                    PlaybackStopInfo(itemId = itemId, positionTicks = positionTicks, failed = false)
+                    PlaybackStopInfo(
+                        itemId = itemId,
+                        mediaSourceId = trackReport?.mediaSourceId,
+                        positionTicks = positionTicks,
+                        failed = false,
+                    )
                 )
             } catch (_: Exception) {
                 database.setUserDataToBeSynced(jellyfinApi.userId!!, itemId, true)
@@ -470,6 +491,7 @@ class JellyfinRepositoryImpl(
         itemId: UUID,
         positionTicks: Long,
         isPaused: Boolean,
+        trackReport: PlaybackTrackReport?,
     ) {
         Timber.d("Posting progress of $itemId, position: $positionTicks")
         withContext(Dispatchers.IO) {
@@ -478,6 +500,9 @@ class JellyfinRepositoryImpl(
                 jellyfinApi.playStateApi.reportPlaybackProgress(
                     PlaybackProgressInfo(
                         itemId = itemId,
+                        mediaSourceId = trackReport?.mediaSourceId,
+                        audioStreamIndex = trackReport?.audioStreamIndex,
+                        subtitleStreamIndex = trackReport?.subtitleStreamIndex,
                         canSeek = true,
                         isPaused = isPaused,
                         isMuted = false,

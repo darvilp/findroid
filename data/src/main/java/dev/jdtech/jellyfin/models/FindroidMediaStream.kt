@@ -18,6 +18,11 @@ data class FindroidMediaStream(
     val height: Int?,
     val width: Int?,
     val videoDoViTitle: String?,
+    /** Jellyfin's source-local stream identity. Unknown for persisted offline media. */
+    val index: Int? = null,
+    val isDefault: Boolean? = null,
+    val isForced: Boolean? = null,
+    val isHearingImpaired: Boolean? = null,
 )
 
 fun MediaStream.toFindroidMediaStream(jellyfinRepository: JellyfinRepository): FindroidMediaStream {
@@ -28,14 +33,21 @@ fun MediaStream.toFindroidMediaStream(jellyfinRepository: JellyfinRepository): F
         type = type,
         codec = codec.orEmpty(),
         isExternal = isExternal,
-        path = jellyfinRepository.getBaseUrl() + deliveryUrl,
+        path = deliveryUrl.toAbsoluteDeliveryUrl(jellyfinRepository.getBaseUrl()),
         channelLayout = channelLayout,
         videoRangeType = videoRangeType,
         height = height,
         width = width,
         videoDoViTitle = videoDoViTitle,
+        index = index,
+        isDefault = isDefault,
+        isForced = isForced,
+        isHearingImpaired = isHearingImpaired,
     )
 }
+
+internal fun String?.toAbsoluteDeliveryUrl(baseUrl: String): String? =
+    this?.let { deliveryUrl -> baseUrl + deliveryUrl }
 
 fun FindroidMediaStreamDto.toFindroidMediaStream(): FindroidMediaStream {
     return FindroidMediaStream(

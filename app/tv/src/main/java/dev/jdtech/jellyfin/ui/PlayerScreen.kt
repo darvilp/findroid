@@ -51,6 +51,7 @@ import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import dev.jdtech.jellyfin.core.R
 import dev.jdtech.jellyfin.models.FindroidSegment
+import dev.jdtech.jellyfin.models.InitialTrackSelection
 import dev.jdtech.jellyfin.player.local.domain.ChapterNavigationDirection
 import dev.jdtech.jellyfin.player.local.domain.ChapterNavigationState
 import dev.jdtech.jellyfin.player.local.domain.PlaylistNavigationDirection
@@ -82,6 +83,7 @@ fun PlayerScreen(
     itemId: UUID,
     itemKind: String,
     startFromBeginning: Boolean,
+    initialTrackSelection: InitialTrackSelection?,
     navigateBack: () -> Unit,
     navigateToDetails: (PlaybackDetailsTarget) -> Unit,
 ) {
@@ -274,6 +276,7 @@ fun PlayerScreen(
                             itemId = itemId,
                             itemKind = itemKind,
                             startFromBeginning = startFromBeginning,
+                            initialTrackSelection = initialTrackSelection,
                         )
                         playerView.setBackgroundColor(
                             playerViewContext.resources.getColor(

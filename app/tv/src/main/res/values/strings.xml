@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="preplay_use_default">Use default</string>
+    <string name="preplay_off">Off</string>
+    <string name="preplay_audio_value">Audio: %1$s</string>
+    <string name="preplay_subtitle_value">Subtitles: %1$s</string>
+    <string name="preplay_tracks_for">Tracks for %1$s</string>
+    <string name="preplay_loading">Loading tracks…</string>
+</resources>

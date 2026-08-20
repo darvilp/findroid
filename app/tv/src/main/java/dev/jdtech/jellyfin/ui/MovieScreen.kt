@@ -53,6 +53,9 @@ import dev.jdtech.jellyfin.film.presentation.movie.MovieState
 import dev.jdtech.jellyfin.film.presentation.movie.MovieViewModel
 import dev.jdtech.jellyfin.film.presentation.hasMeaningfulSavedProgress
 import dev.jdtech.jellyfin.presentation.film.moviePlaybackRoute
+import dev.jdtech.jellyfin.presentation.film.PreplayTrackSelectionState
+import dev.jdtech.jellyfin.presentation.film.PreplayTrackSelectionViewModel
+import dev.jdtech.jellyfin.presentation.film.components.PreplayTrackControls
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
 import dev.jdtech.jellyfin.utils.format
@@ -63,22 +66,43 @@ fun MovieScreen(
     movieId: UUID,
     navigateToPlayer: (route: PlayerRoute) -> Unit,
     viewModel: MovieViewModel = hiltViewModel(),
+    trackSelectionViewModel: PreplayTrackSelectionViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val trackSelectionState by trackSelectionViewModel.state.collectAsStateWithLifecycle()
 
-    LaunchedEffect(true) { viewModel.loadMovie(movieId = movieId) }
+    LaunchedEffect(movieId) {
+        viewModel.loadMovie(movieId = movieId)
+        trackSelectionViewModel.load(movieId)
+    }
 
     MovieScreenLayout(
         state = state,
+        trackSelectionState = trackSelectionState,
+        onSelectAudio = trackSelectionViewModel::selectAudio,
+        onSelectSubtitle = trackSelectionViewModel::selectSubtitle,
+        onRetryTracks = { trackSelectionViewModel.load(movieId) },
         onAction = { action ->
-            moviePlaybackRoute(movieId = movieId, action = action)?.let(navigateToPlayer)
+            moviePlaybackRoute(
+                    movieId = movieId,
+                    action = action,
+                    initialTrackSelection = trackSelectionState.initialTrackSelection(movieId),
+                )
+                ?.let(navigateToPlayer)
             viewModel.onAction(action)
         },
     )
 }
 
 @Composable
-private fun MovieScreenLayout(state: MovieState, onAction: (MovieAction) -> Unit) {
+private fun MovieScreenLayout(
+    state: MovieState,
+    trackSelectionState: PreplayTrackSelectionState,
+    onSelectAudio: (Int?) -> Unit,
+    onSelectSubtitle: (Int?) -> Unit,
+    onRetryTracks: () -> Unit,
+    onAction: (MovieAction) -> Unit,
+) {
     val focusRequester = remember { FocusRequester() }
     val configuration = LocalConfiguration.current
     val locale = configuration.locales.get(0)
@@ -262,6 +286,13 @@ private fun MovieScreenLayout(state: MovieState, onAction: (MovieAction) -> Unit
                         }
                     }
                     Spacer(modifier = Modifier.height(MaterialTheme.spacings.default))
+                    PreplayTrackControls(
+                        state = trackSelectionState,
+                        onSelectAudio = onSelectAudio,
+                        onSelectSubtitle = onSelectSubtitle,
+                        onRetry = onRetryTracks,
+                    )
+                    Spacer(modifier = Modifier.height(MaterialTheme.spacings.default))
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.large)
                     ) {
@@ -322,6 +353,10 @@ private fun MovieScreenLayoutPreview() {
     FindroidTheme {
         MovieScreenLayout(
             state = MovieState(movie = dummyMovie, videoMetadata = dummyVideoMetadata),
+            trackSelectionState = PreplayTrackSelectionState(),
+            onSelectAudio = {},
+            onSelectSubtitle = {},
+            onRetryTracks = {},
             onAction = {},
         )
     }
