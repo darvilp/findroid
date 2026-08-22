@@ -99,6 +99,10 @@
     <string name="play">Play</string>
     <string name="play_from_beginning">Play from beginning</string>
     <string name="restart_current_item">Restart current item</string>
+    <string name="hw_decoder">HW</string>
+    <string name="sw_decoder">SW</string>
+    <string name="switch_to_hardware_decoding">Switch to hardware decoding</string>
+    <string name="switch_to_software_decoding">Switch to software decoding</string>
     <string name="previous_chapter">Previous chapter</string>
     <string name="next_chapter">Next chapter</string>
     <string name="previous_episode">Previous episode</string>

@@ -56,7 +56,7 @@ class MPVPlayer(
     private val pauseAtEndOfMediaItems: Boolean = false,
     videoOutput: String = "gpu-next",
     audioOutput: String = DEFAULT_MPV_AUDIO_OUTPUT,
-    hwDec: String = "mediacodec",
+    private val hwDec: String = "mediacodec",
 ) : BasePlayer(), MPVLib.EventObserver, AudioManager.OnAudioFocusChangeListener {
     private val mpvLib: MPVLib
     private val audioManager: AudioManager by lazy { context.getSystemService()!! }
@@ -1085,6 +1085,13 @@ class MPVPlayer(
         if (getPlaybackParameters().speed != playbackParameters.speed) {
             mpvLib.setPropertyDouble("speed", playbackParameters.speed.toDouble())
         }
+    }
+
+    fun isHardwareDecodingActive(): Boolean? =
+        isHardwareDecodingActive(mpvLib.getPropertyString("hwdec-current"))
+
+    fun setHardwareDecodingEnabled(enabled: Boolean) {
+        mpvLib.setPropertyString("hwdec", requestedHwdec(enabled, hwDec))
     }
 
     /**

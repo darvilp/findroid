@@ -62,6 +62,7 @@ import dev.jdtech.jellyfin.player.local.presentation.PlayerEvents
 import dev.jdtech.jellyfin.presentation.theme.spacings
 import dev.jdtech.jellyfin.ui.components.player.VideoPlayerControlsLayout
 import dev.jdtech.jellyfin.ui.components.player.VideoPlayerMediaButton
+import dev.jdtech.jellyfin.ui.components.player.VideoPlayerMediaTextButton
 import dev.jdtech.jellyfin.ui.components.player.VideoPlayerMediaTitle
 import dev.jdtech.jellyfin.ui.components.player.VideoPlayerOverlay
 import dev.jdtech.jellyfin.ui.components.player.VideoPlayerOverlayMode
@@ -144,12 +145,14 @@ fun PlayerScreen(
     var currentPosition by remember { mutableLongStateOf(0L) }
     var isPlaying by remember { mutableStateOf(viewModel.player.isPlaying) }
     var playWhenReady by remember { mutableStateOf(viewModel.player.playWhenReady) }
+    var hardwareDecodingActive by remember { mutableStateOf<Boolean?>(null) }
     LaunchedEffect(lifecycleOwner, viewModel.player) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             while (true) {
                 currentPosition = viewModel.player.currentPosition
                 isPlaying = viewModel.player.isPlaying
                 playWhenReady = viewModel.player.playWhenReady
+                viewModel.isHardwareDecodingActive()?.let { hardwareDecodingActive = it }
                 delay(300L)
             }
         }
@@ -331,6 +334,11 @@ fun PlayerScreen(
                         onNextEpisode = viewModel::goToNextEpisode,
                         onSelectAudio = { selectedTrackType = C.TRACK_TYPE_AUDIO },
                         onSelectSubtitles = { selectedTrackType = C.TRACK_TYPE_TEXT },
+                        hardwareDecodingActive = hardwareDecodingActive,
+                        onSetHardwareDecodingEnabled = { enabled ->
+                            hardwareDecodingActive = enabled
+                            viewModel.setHardwareDecodingEnabled(enabled)
+                        },
                     )
                 },
             )
@@ -415,6 +423,8 @@ private fun VideoPlayerControls(
     onNextEpisode: () -> Unit,
     onSelectAudio: () -> Unit,
     onSelectSubtitles: () -> Unit,
+    hardwareDecodingActive: Boolean?,
+    onSetHardwareDecodingEnabled: (Boolean) -> Unit,
 ) {
     var focusedEpisodeDirection by remember {
         mutableStateOf<PlaylistNavigationDirection?>(null)
@@ -541,6 +551,25 @@ private fun VideoPlayerControls(
                     onFocusChanged = clearEpisodeNavigationFocus,
                     onClick = onSelectSubtitles,
                 )
+                hardwareDecodingActive?.let { active ->
+                    val enableHardwareDecoding = !active
+                    VideoPlayerMediaTextButton(
+                        label = stringResource(if (active) R.string.hw_decoder else R.string.sw_decoder),
+                        state = state,
+                        contentDescription =
+                            stringResource(
+                                if (enableHardwareDecoding) {
+                                    R.string.switch_to_hardware_decoding
+                                } else {
+                                    R.string.switch_to_software_decoding
+                                }
+                            ),
+                        onFocusChanged = clearEpisodeNavigationFocus,
+                        onClick = {
+                            onSetHardwareDecodingEnabled(enableHardwareDecoding)
+                        },
+                    )
+                }
             }
         },
     )

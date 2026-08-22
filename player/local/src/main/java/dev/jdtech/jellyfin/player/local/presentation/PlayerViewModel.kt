@@ -855,6 +855,13 @@ constructor(
         )
     }
 
+    fun isHardwareDecodingActive(): Boolean? =
+        (player as? MPVPlayer)?.isHardwareDecodingActive()
+
+    fun setHardwareDecodingEnabled(enabled: Boolean) {
+        (player as? MPVPlayer)?.setHardwareDecodingEnabled(enabled)
+    }
+
     private fun beginPlaybackPass(itemId: UUID) {
         mediaSegmentPlayback.beginPlaybackPass(itemId = itemId)
         playbackCompletionCoordinator.beginPlaybackPass()
