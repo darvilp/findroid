@@ -23,6 +23,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
@@ -54,7 +55,6 @@ import dev.jdtech.jellyfin.models.FindroidSegment
 import dev.jdtech.jellyfin.models.InitialTrackSelection
 import dev.jdtech.jellyfin.player.local.domain.ChapterNavigationDirection
 import dev.jdtech.jellyfin.player.local.domain.ChapterNavigationState
-import dev.jdtech.jellyfin.player.local.domain.PlaylistNavigationDirection
 import dev.jdtech.jellyfin.player.local.domain.PlaylistNavigationState
 import dev.jdtech.jellyfin.player.local.domain.PlaybackDetailsTarget
 import dev.jdtech.jellyfin.player.local.presentation.PlayerViewModel
@@ -139,8 +139,9 @@ fun PlayerScreen(
     val videoPlayerState = rememberVideoPlayerState()
     val remoteSeekController = remember { RemoteSeekController() }
     val rootFocusRequester = remember { FocusRequester() }
-    val controlsFocusRequester = remember { FocusRequester() }
     val skipButtonFocusRequester = remember { FocusRequester() }
+    val controlFocusRequesters =
+        remember { PlayerControl.entries.associateWith { FocusRequester() } }
 
     var currentPosition by remember { mutableLongStateOf(0L) }
     var isPlaying by remember { mutableStateOf(viewModel.player.isPlaying) }
@@ -174,13 +175,64 @@ fun PlayerScreen(
     }
 
     var selectedTrackType by remember { mutableStateOf<Int?>(null) }
+    var trackDialogReturnControl by remember { mutableStateOf<PlayerControl?>(null) }
     var dismissedSkipSegment by remember { mutableStateOf<FindroidSegment?>(null) }
     var skipButtonFocused by remember { mutableStateOf(false) }
+    var focusedControl by remember { mutableStateOf<PlayerControl?>(null) }
+    var lastFocusedControl by remember { mutableStateOf<PlayerControl?>(PlayerControl.PlayPause) }
+    var lastFocusedAction by remember { mutableStateOf<PlayerControl?>(null) }
+    var lastFocusedBottomControl by remember {
+        mutableStateOf<PlayerControl?>(PlayerControl.PlayPause)
+    }
+    var lastFocusWasSkipPrompt by remember { mutableStateOf(false) }
+    var pendingControlFocus by remember { mutableStateOf<PlayerControl?>(null) }
     val segment = uiState.currentSegment
     val chapterNavigation = viewModel.chapterNavigationState(currentPosition)
+    val restartAvailable = viewModel.isRestartCurrentItemAvailable(currentPosition)
+    val actionControls =
+        buildList {
+            if (uiState.currentDetailsTarget != null) add(PlayerControl.Details)
+            if (restartAvailable) add(PlayerControl.Restart)
+            if (chapterNavigation.previousChapter != null) add(PlayerControl.PreviousChapter)
+            if (chapterNavigation.nextChapter != null) add(PlayerControl.NextChapter)
+            add(PlayerControl.Audio)
+            add(PlayerControl.Subtitles)
+            if (hardwareDecodingActive != null) add(PlayerControl.HardwareDecoder)
+        }
+    val bottomControls =
+        buildList {
+            if (uiState.playlistNavigation.canGoPrevious) add(PlayerControl.PreviousEpisode)
+            add(PlayerControl.PlayPause)
+            if (uiState.playlistNavigation.canGoNext) add(PlayerControl.NextEpisode)
+            add(PlayerControl.SeekBar)
+        }
+    val availableControls = (actionControls + bottomControls).toSet()
+
+    val onControlFocused = { control: PlayerControl ->
+        focusedControl = control
+        lastFocusedControl = control
+        lastFocusWasSkipPrompt = false
+        if (control in actionControls) lastFocusedAction = control
+        if (control in bottomControls) lastFocusedBottomControl = control
+    }
 
     LaunchedEffect(segment) {
         if (segment == null) dismissedSkipSegment = null
+    }
+
+    LaunchedEffect(segment, lastFocusWasSkipPrompt, videoPlayerState.mode) {
+        val control =
+            focusAfterSkipPromptRemoval(
+                skipPromptWasFocused = lastFocusWasSkipPrompt,
+                skipPromptAvailable = segment != null,
+                overlayMode = videoPlayerState.mode,
+                lastFocusedBottomControl = lastFocusedBottomControl,
+                availableControls = bottomControls.toSet(),
+            )
+        if (control != null) {
+            lastFocusWasSkipPrompt = false
+            pendingControlFocus = control
+        }
     }
 
     val skipPromptMayTakeFocus =
@@ -189,41 +241,66 @@ fun PlayerScreen(
             selectedTrackType == null &&
             videoPlayerState.mode != VideoPlayerOverlayMode.Controls
 
+    LaunchedEffect(videoPlayerState.mode) {
+        if (videoPlayerState.mode == VideoPlayerOverlayMode.Controls) {
+            delay(50L)
+            val control = restoredPlayerControl(lastFocusedControl, availableControls)
+            controlFocusRequesters.getValue(control).requestFocus()
+        }
+    }
+
+    LaunchedEffect(pendingControlFocus, videoPlayerState.mode) {
+        val control = pendingControlFocus ?: return@LaunchedEffect
+        if (videoPlayerState.mode == VideoPlayerOverlayMode.Controls) {
+            delay(50L)
+            controlFocusRequesters.getValue(control).requestFocus()
+            pendingControlFocus = null
+        }
+    }
+
     LaunchedEffect(
         segment,
         dismissedSkipSegment,
         selectedTrackType,
         videoPlayerState.mode,
+        focusedControl,
+        availableControls,
     ) {
-        if (selectedTrackType == null) {
-            when {
-                skipPromptMayTakeFocus -> skipButtonFocusRequester.requestFocus()
-                videoPlayerState.mode == VideoPlayerOverlayMode.Controls -> {
-                    // Let AnimatedVisibility place the controls before moving focus off a
-                    // segment prompt. An immediate request can race the enter animation.
-                    delay(50L)
-                    controlsFocusRequester.requestFocus()
-                }
-                else -> rootFocusRequester.requestFocus()
+        when (
+            val request =
+                playerFocusRequest(
+                    overlayMode = videoPlayerState.mode,
+                    modalActive = selectedTrackType != null,
+                    skipPromptMayTakeFocus = skipPromptMayTakeFocus,
+                    focusedControl = focusedControl,
+                    availableControls = availableControls,
+                )
+        ) {
+            PlayerFocusRequest.Root -> {
+                focusedControl = null
+                lastFocusWasSkipPrompt = false
+                rootFocusRequester.requestFocus()
             }
+            PlayerFocusRequest.SkipPrompt -> {
+                focusedControl = null
+                lastFocusWasSkipPrompt = true
+                skipButtonFocusRequester.requestFocus()
+            }
+            is PlayerFocusRequest.Control -> {
+                focusedControl = null
+                pendingControlFocus = request.control
+            }
+            null -> Unit
         }
     }
 
-    var chapterActionsAvailable by remember {
-        mutableStateOf(chapterNavigation.hasMeaningfulChapters)
-    }
-    LaunchedEffect(chapterNavigation.hasMeaningfulChapters) {
-        val chapterActionsRemoved =
-            chapterActionsAvailable && !chapterNavigation.hasMeaningfulChapters
-        chapterActionsAvailable = chapterNavigation.hasMeaningfulChapters
-        if (
-            chapterActionsRemoved &&
-                selectedTrackType == null &&
-                videoPlayerState.mode == VideoPlayerOverlayMode.Controls
-        ) {
-            delay(50L)
-            controlsFocusRequester.requestFocus()
+    val closeTrackDialog = {
+        selectedTrackType = null
+        trackDialogReturnControl?.let { control ->
+            pendingControlFocus = control
+            videoPlayerState.showControls()
         }
+        trackDialogReturnControl = null
     }
 
     BackHandler(
@@ -233,13 +310,15 @@ fun PlayerScreen(
                 skipButtonFocused
     ) {
         when {
-            selectedTrackType != null -> selectedTrackType = null
+            selectedTrackType != null -> closeTrackDialog()
             videoPlayerState.mode != VideoPlayerOverlayMode.Hidden -> {
                 videoPlayerState.hideControls()
+                focusedControl = null
                 rootFocusRequester.requestFocus()
             }
             skipButtonFocused && segment != null -> {
                 dismissedSkipSegment = segment
+                focusedControl = null
                 rootFocusRequester.requestFocus()
             }
         }
@@ -303,7 +382,6 @@ fun PlayerScreen(
             )
             VideoPlayerOverlay(
                 modifier = Modifier.align(Alignment.BottomCenter),
-                focusRequester = controlsFocusRequester,
                 state = videoPlayerState,
                 shouldAutoHide = playWhenReady,
                 controls = {
@@ -317,12 +395,15 @@ fun PlayerScreen(
                         showChapterMarkers = viewModel.chapterMarkersEnabled,
                         player = viewModel.player,
                         state = videoPlayerState,
-                        focusRequester = controlsFocusRequester,
+                        controlFocusRequesters = controlFocusRequesters,
+                        actionControls = actionControls,
+                        bottomControls = bottomControls,
+                        lastFocusedAction = lastFocusedAction,
+                        onControlFocused = onControlFocused,
                         skipButtonFocusRequester = skipButtonFocusRequester,
                         skipPromptAvailable = segment != null,
                         remoteSeekController = remoteSeekController,
-                        restartAvailable =
-                            viewModel.isRestartCurrentItemAvailable(currentPosition),
+                        restartAvailable = restartAvailable,
                         onRestart = viewModel::restartCurrentItem,
                         onViewDetails = { target ->
                             viewModel.player.pause()
@@ -332,8 +413,16 @@ fun PlayerScreen(
                         onNextChapter = viewModel::seekToNextChapter,
                         onPreviousEpisode = viewModel::goToPreviousEpisode,
                         onNextEpisode = viewModel::goToNextEpisode,
-                        onSelectAudio = { selectedTrackType = C.TRACK_TYPE_AUDIO },
-                        onSelectSubtitles = { selectedTrackType = C.TRACK_TYPE_TEXT },
+                        onSelectAudio = {
+                            focusedControl = null
+                            trackDialogReturnControl = PlayerControl.Audio
+                            selectedTrackType = C.TRACK_TYPE_AUDIO
+                        },
+                        onSelectSubtitles = {
+                            focusedControl = null
+                            trackDialogReturnControl = PlayerControl.Subtitles
+                            selectedTrackType = C.TRACK_TYPE_TEXT
+                        },
                         hardwareDecodingActive = hardwareDecodingActive,
                         onSetHardwareDecodingEnabled = { enabled ->
                             hardwareDecodingActive = enabled
@@ -351,6 +440,10 @@ fun PlayerScreen(
                 skipButtonFocusRequester = skipButtonFocusRequester,
                 onFocusChanged = { focused ->
                     skipButtonFocused = focused
+                    if (focused) {
+                        focusedControl = null
+                        lastFocusWasSkipPrompt = true
+                    }
                     if (focused && videoPlayerState.mode == VideoPlayerOverlayMode.Controls) {
                         videoPlayerState.showControls()
                     }
@@ -358,11 +451,12 @@ fun PlayerScreen(
                 onNavigateFocus = { target ->
                     when (target) {
                         PlayerFocusTarget.DefaultControls -> {
-                            if (videoPlayerState.mode == VideoPlayerOverlayMode.Controls) {
-                                controlsFocusRequester.requestFocus()
-                            } else {
-                                videoPlayerState.showControls()
-                            }
+                            pendingControlFocus =
+                                restoredPlayerControl(
+                                    lastFocusedBottomControl,
+                                    bottomControls.toSet(),
+                                )
+                            videoPlayerState.showControls()
                         }
                         PlayerFocusTarget.SkipPrompt -> skipButtonFocusRequester.requestFocus()
                     }
@@ -391,9 +485,9 @@ fun PlayerScreen(
                     groupIndex = track?.groupIndex,
                     trackIndex = track?.trackIndex,
                 )
-                selectedTrackType = null
+                closeTrackDialog()
             },
-            onDismiss = { selectedTrackType = null },
+            onDismiss = closeTrackDialog,
         )
     }
 }
@@ -410,7 +504,11 @@ private fun VideoPlayerControls(
     showChapterMarkers: Boolean,
     player: Player,
     state: VideoPlayerState,
-    focusRequester: FocusRequester,
+    controlFocusRequesters: Map<PlayerControl, FocusRequester>,
+    actionControls: List<PlayerControl>,
+    bottomControls: List<PlayerControl>,
+    lastFocusedAction: PlayerControl?,
+    onControlFocused: (PlayerControl) -> Unit,
     skipButtonFocusRequester: FocusRequester,
     skipPromptAvailable: Boolean,
     remoteSeekController: RemoteSeekController,
@@ -426,25 +524,59 @@ private fun VideoPlayerControls(
     hardwareDecodingActive: Boolean?,
     onSetHardwareDecodingEnabled: (Boolean) -> Unit,
 ) {
-    var focusedEpisodeDirection by remember {
-        mutableStateOf<PlaylistNavigationDirection?>(null)
-    }
-    LaunchedEffect(playlistNavigation, focusedEpisodeDirection, state.mode) {
-        if (
-            state.mode == VideoPlayerOverlayMode.Controls &&
-                shouldRestoreEpisodeNavigationFocus(
-                    focusedDirection = focusedEpisodeDirection,
-                    navigation = playlistNavigation,
-                )
-        ) {
-            delay(50L)
-            focusRequester.requestFocus()
-            focusedEpisodeDirection = null
-        }
-    }
-    val clearEpisodeNavigationFocus = { focused: Boolean ->
-        if (focused) focusedEpisodeDirection = null
-    }
+    fun requester(control: PlayerControl?): FocusRequester =
+        control?.let(controlFocusRequesters::getValue) ?: FocusRequester.Cancel
+
+    fun controlModifier(
+        control: PlayerControl,
+        left: FocusRequester,
+        right: FocusRequester,
+        up: FocusRequester,
+        down: FocusRequester,
+    ): Modifier =
+        Modifier.focusRequester(controlFocusRequesters.getValue(control))
+            .focusProperties {
+                this.left = left
+                this.right = right
+                this.up = up
+                this.down = down
+            }
+            .onFocusChanged { focusState ->
+                if (focusState.isFocused) onControlFocused(control)
+            }
+
+    fun actionModifier(control: PlayerControl): Modifier =
+        controlModifier(
+            control = control,
+            left = requester(previousPlayerControl(control, actionControls)),
+            right = requester(nextPlayerControl(control, actionControls)),
+            up = FocusRequester.Cancel,
+            down = requester(PlayerControl.SeekBar),
+        )
+
+    val upAction = lastFocusedAction?.takeIf { it in actionControls } ?: actionControls.firstOrNull()
+    val bottomDownRequester =
+        if (skipPromptAvailable) skipButtonFocusRequester else FocusRequester.Cancel
+
+    fun bottomModifier(control: PlayerControl): Modifier =
+        controlModifier(
+            control = control,
+            left = requester(previousPlayerControl(control, bottomControls)),
+            right = requester(nextPlayerControl(control, bottomControls)),
+            up = requester(upAction),
+            down = bottomDownRequester,
+        )
+
+    val seekBarModifier =
+        controlModifier(
+            control = PlayerControl.SeekBar,
+            left = FocusRequester.Cancel,
+            right = FocusRequester.Cancel,
+            up = requester(upAction),
+            down = bottomDownRequester,
+        )
+
+    val playPauseFocusRequester = controlFocusRequesters.getValue(PlayerControl.PlayPause)
 
     val onPlayPauseToggle = { shouldPlay: Boolean ->
         if (shouldPlay) player.play() else player.pause()
@@ -463,16 +595,17 @@ private fun VideoPlayerControls(
         mediaTitle = { VideoPlayerMediaTitle(title = title, subtitle = null) },
         seeker = {
             VideoPlayerSeeker(
-                focusRequester = focusRequester,
+                playPauseFocusRequester = playPauseFocusRequester,
                 state = state,
                 isPlaying = isPlaying,
                 onPlayPauseToggle = onPlayPauseToggle,
                 playlistNavigation = playlistNavigation,
+                previousEpisodeModifier = bottomModifier(PlayerControl.PreviousEpisode),
+                playPauseModifier = bottomModifier(PlayerControl.PlayPause),
+                nextEpisodeModifier = bottomModifier(PlayerControl.NextEpisode),
+                seekBarModifier = seekBarModifier,
                 onPreviousEpisode = onPreviousEpisode,
                 onNextEpisode = onNextEpisode,
-                onEpisodeNavigationFocusChanged = { direction ->
-                    focusedEpisodeDirection = direction
-                },
                 onSeekKeyEvent = { keyEvent, direction ->
                     player.handleRemoteSeekKeyEvent(remoteSeekController, keyEvent, direction)
                 },
@@ -485,7 +618,6 @@ private fun VideoPlayerControls(
                         ) == PlayerFocusTarget.SkipPrompt
                     ) {
                         {
-                            focusedEpisodeDirection = null
                             state.showControls()
                             skipButtonFocusRequester.requestFocus()
                         }
@@ -503,8 +635,8 @@ private fun VideoPlayerControls(
                     icon = painterResource(id = R.drawable.ic_info),
                     state = state,
                     contentDescription = stringResource(id = R.string.view_details),
+                    modifier = actionModifier(PlayerControl.Details),
                     enabled = detailsTarget != null,
-                    onFocusChanged = clearEpisodeNavigationFocus,
                     onClick = { detailsTarget?.let(onViewDetails) },
                 )
                 if (restartAvailable) {
@@ -512,9 +644,9 @@ private fun VideoPlayerControls(
                         icon = painterResource(id = R.drawable.ic_rotate_ccw),
                         state = state,
                         contentDescription = stringResource(id = R.string.restart_current_item),
-                        onFocusChanged = clearEpisodeNavigationFocus,
+                        modifier = actionModifier(PlayerControl.Restart),
                         onClick = {
-                            focusRequester.requestFocus()
+                            playPauseFocusRequester.requestFocus()
                             onRestart()
                         },
                     )
@@ -524,16 +656,16 @@ private fun VideoPlayerControls(
                         icon = painterResource(id = R.drawable.ic_skip_back),
                         state = state,
                         contentDescription = stringResource(id = R.string.previous_chapter),
+                        modifier = actionModifier(PlayerControl.PreviousChapter),
                         enabled = chapterNavigation.previousChapter != null,
-                        onFocusChanged = clearEpisodeNavigationFocus,
                         onClick = onPreviousChapter,
                     )
                     VideoPlayerMediaButton(
                         icon = painterResource(id = R.drawable.ic_skip_forward),
                         state = state,
                         contentDescription = stringResource(id = R.string.next_chapter),
+                        modifier = actionModifier(PlayerControl.NextChapter),
                         enabled = chapterNavigation.nextChapter != null,
-                        onFocusChanged = clearEpisodeNavigationFocus,
                         onClick = onNextChapter,
                     )
                 }
@@ -541,14 +673,14 @@ private fun VideoPlayerControls(
                     icon = painterResource(id = R.drawable.ic_speaker),
                     state = state,
                     contentDescription = stringResource(id = R.string.audio),
-                    onFocusChanged = clearEpisodeNavigationFocus,
+                    modifier = actionModifier(PlayerControl.Audio),
                     onClick = onSelectAudio,
                 )
                 VideoPlayerMediaButton(
                     icon = painterResource(id = R.drawable.ic_closed_caption),
                     state = state,
                     contentDescription = stringResource(id = R.string.subtitle),
-                    onFocusChanged = clearEpisodeNavigationFocus,
+                    modifier = actionModifier(PlayerControl.Subtitles),
                     onClick = onSelectSubtitles,
                 )
                 hardwareDecodingActive?.let { active ->
@@ -556,6 +688,7 @@ private fun VideoPlayerControls(
                     VideoPlayerMediaTextButton(
                         label = stringResource(if (active) R.string.hw_decoder else R.string.sw_decoder),
                         state = state,
+                        modifier = actionModifier(PlayerControl.HardwareDecoder),
                         contentDescription =
                             stringResource(
                                 if (enableHardwareDecoding) {
@@ -564,7 +697,6 @@ private fun VideoPlayerControls(
                                     R.string.switch_to_software_decoding
                                 }
                             ),
-                        onFocusChanged = clearEpisodeNavigationFocus,
                         onClick = {
                             onSetHardwareDecodingEnabled(enableHardwareDecoding)
                         },
@@ -708,11 +840,6 @@ internal fun playerRootOwnsPlaybackKeys(
 ): Boolean =
     overlayMode != VideoPlayerOverlayMode.Controls &&
         !skipPromptFocused
-
-internal fun shouldRestoreEpisodeNavigationFocus(
-    focusedDirection: PlaylistNavigationDirection?,
-    navigation: PlaylistNavigationState,
-): Boolean = focusedDirection?.let { direction -> !navigation.isAvailable(direction) } ?: false
 
 internal enum class PlayerFocusTarget {
     DefaultControls,

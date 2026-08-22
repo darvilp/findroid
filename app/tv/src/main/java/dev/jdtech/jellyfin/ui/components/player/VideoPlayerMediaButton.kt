@@ -19,6 +19,7 @@ fun VideoPlayerMediaButton(
     icon: Painter,
     state: VideoPlayerState,
     contentDescription: String,
+    modifier: Modifier = Modifier,
     enabled: Boolean = true,
     onFocusChanged: (Boolean) -> Unit = {},
     onClick: () -> Unit = {},
@@ -26,6 +27,7 @@ fun VideoPlayerMediaButton(
     VideoPlayerMediaButtonContent(
         state = state,
         contentDescription = contentDescription,
+        modifier = modifier,
         enabled = enabled,
         onFocusChanged = onFocusChanged,
         onClick = onClick,
@@ -39,6 +41,7 @@ fun VideoPlayerMediaTextButton(
     label: String,
     state: VideoPlayerState,
     contentDescription: String,
+    modifier: Modifier = Modifier,
     enabled: Boolean = true,
     onFocusChanged: (Boolean) -> Unit = {},
     onClick: () -> Unit = {},
@@ -46,6 +49,7 @@ fun VideoPlayerMediaTextButton(
     VideoPlayerMediaButtonContent(
         state = state,
         contentDescription = contentDescription,
+        modifier = modifier,
         enabled = enabled,
         onFocusChanged = onFocusChanged,
         onClick = onClick,
@@ -58,6 +62,7 @@ fun VideoPlayerMediaTextButton(
 private fun VideoPlayerMediaButtonContent(
     state: VideoPlayerState,
     contentDescription: String,
+    modifier: Modifier,
     enabled: Boolean,
     onFocusChanged: (Boolean) -> Unit,
     onClick: () -> Unit,
@@ -72,7 +77,7 @@ private fun VideoPlayerMediaButtonContent(
     }
 
     IconButton(
-        modifier = Modifier.semantics { this.contentDescription = contentDescription },
+        modifier = modifier.semantics { this.contentDescription = contentDescription },
         enabled = enabled,
         onClick = {
             state.showControls()

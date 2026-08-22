@@ -33,6 +33,7 @@ fun VideoPlayerSeekBar(
     onSeekKeyEvent: (KeyEvent, RemoteSeekDirection) -> Unit,
     onPlayPauseToggle: () -> Unit,
     state: VideoPlayerState,
+    modifier: Modifier = Modifier,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
@@ -46,7 +47,8 @@ fun VideoPlayerSeekBar(
 
     Canvas(
         modifier =
-            Modifier.fillMaxWidth()
+            modifier
+                .fillMaxWidth()
                 .height(animatedHeight)
                 .padding(horizontal = 4.dp)
                 .onPreviewKeyEvent { event ->
