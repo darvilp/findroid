@@ -108,10 +108,10 @@ private fun SettingsSubScreenLayout(
 ) {
     val focusRequester = remember { FocusRequester() }
 
-    var focusedPreference by
-        remember(state.preferenceGroups.isNotEmpty()) {
-            mutableStateOf(state.preferenceGroups.firstOrNull()?.preferences?.firstOrNull())
-        }
+    var focusedPreferenceKey by remember { mutableStateOf<SettingsPreferenceFocusKey?>(null) }
+    val focusedPreference =
+        state.preferenceGroups.findPreference(focusedPreferenceKey)
+            ?: state.preferenceGroups.firstOrNull()?.preferences?.firstOrNull()
 
     Column(
         modifier =
@@ -141,7 +141,7 @@ private fun SettingsSubScreenLayout(
                         onAction = onAction,
                         onFocusChange = { focusState, preference ->
                             if (focusState.isFocused) {
-                                focusedPreference = preference
+                                focusedPreferenceKey = preference.focusKey()
                             }
                         },
                     )
