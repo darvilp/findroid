@@ -225,10 +225,28 @@ EOF
     [[ "$output" == *"certificate fingerprint mismatch"* ]]
 }
 
-@test "verification rejects an APK with an additional signer" {
+@test "verification accepts current Build Tools 37 V2 signer output" {
+    make_fake_tools
+    sed -i 's/Signer #1 certificate SHA-256 digest: AA:BB/V2 Signer: certificate SHA-256 digest: AA:BB/' "$ANDROID_HOME/build-tools/37.0.0/apksigner"
+    for abi in armeabi-v7a arm64-v8a x86 x86_64 universal; do touch "$TEST_ROOT/out/findroid-tv-1.1.0-atv.1-$abi.apk"; done
+    run "$REPO_ROOT/scripts/release/verify-findroid-tv-release.sh" "$TEST_ROOT/out"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"certificate SHA-256: AA:BB"* ]]
+}
+
+@test "verification rejects multiple distinct fingerprint lines for one signer" {
+    make_fake_tools
+    sed -i '/Signer #1/a echo "V2 Signer: certificate SHA-256 digest: CC:DD"' "$ANDROID_HOME/build-tools/37.0.0/apksigner"
+    for abi in armeabi-v7a arm64-v8a x86 x86_64 universal; do touch "$TEST_ROOT/out/findroid-tv-1.1.0-atv.1-$abi.apk"; done
+    run "$REPO_ROOT/scripts/release/verify-findroid-tv-release.sh" "$TEST_ROOT/out"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"exactly one signer"* ]]
+}
+
+@test "verification rejects Build Tools 37 output with two V2 signers" {
     make_fake_tools
     sed -i 's/Number of signers: 1/Number of signers: 2/' "$ANDROID_HOME/build-tools/37.0.0/apksigner"
-    sed -i '/Signer #1/a echo "Signer #2 certificate SHA-256 digest: 11:22"' "$ANDROID_HOME/build-tools/37.0.0/apksigner"
+    sed -i '/Signer #1/c echo "V2 Signer #1: certificate SHA-256 digest: AA:BB"\necho "V2 Signer #2: certificate SHA-256 digest: 11:22"' "$ANDROID_HOME/build-tools/37.0.0/apksigner"
     for abi in armeabi-v7a arm64-v8a x86 x86_64 universal; do touch "$TEST_ROOT/out/findroid-tv-1.1.0-atv.1-$abi.apk"; done
     run "$REPO_ROOT/scripts/release/verify-findroid-tv-release.sh" "$TEST_ROOT/out"
     [ "$status" -ne 0 ]

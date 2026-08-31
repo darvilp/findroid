@@ -44,7 +44,9 @@ for apk in "${artifacts[@]}"; do
     fi
     mapfile -t signer_fingerprints < <(
         printf '%s\n' "$signer" |
-            sed -n -E 's/^Signer #1 certificate SHA-256 digest: //p' |
+            sed -n -E \
+                -e 's/^Signer #1 certificate SHA-256 digest: //p' \
+                -e 's/^V2 Signer: certificate SHA-256 digest: //p' |
             sort -u
     )
     ((${#signer_fingerprints[@]} == 1)) || fail "exactly one signer is required for ${apk##*/}"
