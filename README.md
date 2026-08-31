@@ -65,7 +65,10 @@ I am developing this application in my spare time.
   - Skip button
   - Auto skip
 
-### Planned features
+### Upstream planned features
+
+This is the upstream project's roadmap. Its Android TV plans are separate from this experimental fork.
+
 - Android TV
 - Websocket connection (Syncplay)
 - Chromecast support

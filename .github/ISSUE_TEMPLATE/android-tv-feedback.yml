@@ -22,7 +22,7 @@ body:
     id: device-model
     attributes:
       label: TV or device model
-      placeholder: Hisense 55U6G
+      placeholder: Manufacturer and model number
     validations:
       required: true
 
