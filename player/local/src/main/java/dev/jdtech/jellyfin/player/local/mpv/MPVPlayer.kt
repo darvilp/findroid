@@ -34,6 +34,7 @@ import androidx.media3.common.util.ListenerSet
 import androidx.media3.common.util.Size
 import androidx.media3.common.util.Util
 import dev.jdtech.jellyfin.settings.domain.DEFAULT_MPV_AUDIO_OUTPUT
+import dev.jdtech.jellyfin.settings.domain.MpvSynchronizationKind
 import dev.jdtech.mpv.MPVLib
 import dev.jdtech.mpv.MPVLib.MpvFormat
 import dev.jdtech.mpv.MPVLib.MpvEvent
@@ -57,7 +58,7 @@ class MPVPlayer(
     videoOutput: String = "gpu-next",
     audioOutput: String = DEFAULT_MPV_AUDIO_OUTPUT,
     private val hwDec: String = "mediacodec",
-) : BasePlayer(), MPVLib.EventObserver, AudioManager.OnAudioFocusChangeListener {
+) : BasePlayer(), MPVLib.EventObserver, AudioManager.OnAudioFocusChangeListener, MpvSynchronization {
     private val mpvLib: MPVLib
     private val audioManager: AudioManager by lazy { context.getSystemService()!! }
     private var audioFocusCallback: () -> Unit = {}
@@ -315,6 +316,7 @@ class MPVPlayer(
     private var initialSeekTo: Long = 0L
     private var oldMediaItem: MediaItem? = null
     private var pendingPlaylistInsertion: MpvPlaylistInsertionPlan? = null
+    private val fileLoadedListeners = mutableSetOf<() -> Unit>()
 
     // mpv events
     override fun eventProperty(property: String) {
@@ -453,6 +455,7 @@ class MPVPlayer(
                     isSeekable = mpvLib.getPropertyBoolean("seekable") == true
                     currentDurationMs =
                         (mpvLib.getPropertyDouble("duration")?.times(C.MILLIS_PER_SECOND))?.toLong()
+                    fileLoadedListeners.toList().forEach { it() }
                 }
                 MpvEvent.MPV_EVENT_SEEK -> {
                     setPlayerStateAndNotifyIfChanged(playbackState = STATE_BUFFERING)
@@ -479,6 +482,26 @@ class MPVPlayer(
                 else -> Unit
             }
         }
+    }
+
+    override fun getSynchronization(kind: MpvSynchronizationKind): Long? =
+        mpvSynchronizationMilliseconds(
+            mpvLib.getPropertyString(mpvSynchronizationProperty(kind))
+        )
+
+    override fun setSynchronization(kind: MpvSynchronizationKind, valueMs: Long) {
+        mpvLib.setPropertyString(
+            mpvSynchronizationProperty(kind),
+            mpvSynchronizationSeconds(valueMs),
+        )
+    }
+
+    override fun addFileLoadedListener(listener: () -> Unit) {
+        fileLoadedListeners += listener
+    }
+
+    override fun removeFileLoadedListener(listener: () -> Unit) {
+        fileLoadedListeners -= listener
     }
 
     private fun setPlayerStateAndNotifyIfChanged(
@@ -1112,6 +1135,7 @@ class MPVPlayer(
      * player must not be used after calling this method.
      */
     override fun release() {
+        fileLoadedListeners.clear()
         if (handleAudioFocus) {
             AudioManagerCompat.abandonAudioFocusRequest(audioManager, audioFocusRequest)
         }

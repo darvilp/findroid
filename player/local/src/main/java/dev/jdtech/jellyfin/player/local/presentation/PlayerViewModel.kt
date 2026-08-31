@@ -46,15 +46,22 @@ import dev.jdtech.jellyfin.player.local.domain.PlaybackDetailsTarget
 import dev.jdtech.jellyfin.player.local.domain.PlaybackRestartController
 import dev.jdtech.jellyfin.player.local.domain.PlaybackRestartTarget
 import dev.jdtech.jellyfin.player.local.domain.PlaybackStopReport
+import dev.jdtech.jellyfin.player.local.domain.PlaybackSynchronizationController
+import dev.jdtech.jellyfin.player.local.domain.PlaybackSynchronizationSaveCoordinator
+import dev.jdtech.jellyfin.player.local.domain.PlaybackSynchronizationSaveOutcome
 import dev.jdtech.jellyfin.player.local.domain.PlaylistNavigationController
 import dev.jdtech.jellyfin.player.local.domain.PlaylistNavigationDirection
 import dev.jdtech.jellyfin.player.local.domain.PlaylistNavigationState
 import dev.jdtech.jellyfin.player.local.domain.PlaylistNavigationTarget
 import dev.jdtech.jellyfin.player.local.domain.toTrackOptions
 import dev.jdtech.jellyfin.player.local.mpv.MPVPlayer
+import dev.jdtech.jellyfin.player.local.mpv.MpvSynchronization
 import dev.jdtech.jellyfin.repository.JellyfinRepository
 import dev.jdtech.jellyfin.settings.domain.AppPreferences
 import dev.jdtech.jellyfin.settings.domain.Constants
+import dev.jdtech.jellyfin.settings.domain.MpvSynchronizationConfigStore
+import dev.jdtech.jellyfin.settings.domain.MpvSynchronizationDefaults
+import dev.jdtech.jellyfin.settings.domain.MpvSynchronizationKind
 import java.util.UUID
 import javax.inject.Inject
 import kotlin.math.ceil
@@ -81,6 +88,7 @@ constructor(
     private val playlistManager: PlaylistManager,
     private val repository: JellyfinRepository,
     private val appPreferences: AppPreferences,
+    private val mpvSynchronizationConfigStore: MpvSynchronizationConfigStore,
     private val savedStateHandle: SavedStateHandle,
 ) : ViewModel(), Player.Listener {
     val player: Player
@@ -98,6 +106,7 @@ constructor(
                 audioTracks = emptyList(),
                 subtitleTracks = emptyList(),
                 fileLoaded = false,
+                synchronization = null,
             )
         )
     val uiState = _uiState.asStateFlow()
@@ -116,6 +125,15 @@ constructor(
         val audioTracks: List<Track>,
         val subtitleTracks: List<Track>,
         val fileLoaded: Boolean,
+        val synchronization: PlaybackSynchronizationUiState?,
+    )
+
+    data class PlaybackSynchronizationUiState(
+        val audioBaselineMs: Long,
+        val audioEffectiveMs: Long,
+        val subtitleBaselineMs: Long,
+        val subtitleEffectiveMs: Long,
+        val canEditSubtitle: Boolean,
     )
 
     private var items: MutableList<PlayerItem> = mutableListOf()
@@ -130,6 +148,19 @@ constructor(
     private val chapterNavigationController = ChapterNavigationController()
     private val playlistNavigationController = PlaylistNavigationController()
     private val initialTrackApplicationState = InitialTrackApplicationState()
+    private val playbackSynchronizationController = PlaybackSynchronizationController()
+    private val playbackSynchronizationSaveCoordinator =
+        PlaybackSynchronizationSaveCoordinator(
+            scope = viewModelScope,
+            write = { kind, valueMs ->
+                withContext(Dispatchers.IO) {
+                    mpvSynchronizationConfigStore.write(kind, valueMs).map {}
+                }
+            },
+            onOutcome = ::onSynchronizationSaveOutcome,
+        )
+    private lateinit var mpvSynchronization: MpvSynchronization
+    private val onMpvFileLoaded = { synchronizeMpvFile() }
     private var adjacentTrackRefreshJob: Job? = null
 
     // Segments preferences
@@ -222,6 +253,10 @@ constructor(
             }
 
             else -> throw RuntimeException("$playerBackend is not a valid player backend")
+        }
+        (player as? MpvSynchronization)?.let {
+            mpvSynchronization = it
+            it.addFileLoadedListener(onMpvFileLoaded)
         }
     }
 
@@ -355,6 +390,9 @@ constructor(
         playbackPosition = 0L
         currentMediaItemIndex = 0
         player.removeListener(this)
+        if (::mpvSynchronization.isInitialized) {
+            mpvSynchronization.removeFileLoadedListener(onMpvFileLoaded)
+        }
         player.release()
     }
 
@@ -427,6 +465,10 @@ constructor(
             )
         }
         val transitionedMediaId = mediaItem?.mediaId ?: return
+        if (::mpvSynchronization.isInitialized) {
+            playbackSynchronizationController.onMediaChanged(transitionedMediaId)
+            updateSynchronizationUiState()
+        }
         val itemId = transitionedItemId ?: return
         initialTrackApplicationState.reset(itemId)
         beginPlaybackPass(itemId = itemId)
@@ -793,6 +835,7 @@ constructor(
                 subtitleTracks = tracks.toTrackOptions(C.TRACK_TYPE_TEXT),
             )
         }
+        updateSynchronizationUiState()
     }
 
     private fun updateSelectedTrack(
@@ -813,6 +856,138 @@ constructor(
                     )
                 else -> state
             }
+        }
+        updateSynchronizationUiState()
+    }
+
+    fun setSynchronization(kind: MpvSynchronizationKind, valueMs: Long): Boolean {
+        if (!hasInitializedSynchronization() || !canEditSynchronization(kind)) return false
+        playbackSynchronizationController.setEffective(kind, valueMs)
+        mpvSynchronization.setSynchronization(kind, valueMs)
+        updateSynchronizationUiState()
+        return true
+    }
+
+    fun resetSynchronization(kind: MpvSynchronizationKind): Boolean {
+        if (!hasInitializedSynchronization() || !canEditSynchronization(kind)) return false
+        playbackSynchronizationController.reset(kind)
+        mpvSynchronization.setSynchronization(
+            kind,
+            playbackSynchronizationController.effective(kind),
+        )
+        updateSynchronizationUiState()
+        return true
+    }
+
+    fun useCurrentSynchronizationAsDefault(kind: MpvSynchronizationKind): Boolean {
+        if (!hasInitializedSynchronization() || !canEditSynchronization(kind)) return false
+        val effectiveMs = playbackSynchronizationController.effective(kind)
+        val mediaId = player.currentMediaItem?.mediaId ?: return false
+        val sessionToken =
+            playbackSynchronizationController.sessionToken(mediaId) ?: return false
+        playbackSynchronizationSaveCoordinator.enqueue(
+            kind = kind,
+            valueMs = effectiveMs,
+            mediaId = mediaId,
+            sessionToken = sessionToken,
+        )
+        return true
+    }
+
+    private fun onSynchronizationSaveOutcome(outcome: PlaybackSynchronizationSaveOutcome) {
+        if (
+            playbackSynchronizationController.sessionToken(outcome.mediaId) !=
+                outcome.sessionToken
+        ) {
+            return
+        }
+        when (outcome) {
+            is PlaybackSynchronizationSaveOutcome.Success -> {
+                if (
+                    playbackSynchronizationController.promoteIfCurrent(
+                        mediaId = outcome.mediaId,
+                        sessionToken = outcome.sessionToken,
+                        kind = outcome.kind,
+                        savedValueMs = outcome.valueMs,
+                    )
+                ) {
+                    updateSynchronizationUiState()
+                }
+            }
+            is PlaybackSynchronizationSaveOutcome.Failure -> {
+                if (!outcome.shouldNotify) return
+                Timber.e(outcome.error)
+                Toast.makeText(
+                        application,
+                        R.string.synchronization_save_failed,
+                        Toast.LENGTH_LONG,
+                    )
+                    .show()
+            }
+        }
+    }
+
+    private fun synchronizeMpvFile() {
+        val mediaId = player.currentMediaItem?.mediaId ?: return
+        val observed =
+            MpvSynchronizationDefaults(
+                audioMs =
+                    mpvSynchronization.getSynchronization(MpvSynchronizationKind.AUDIO)
+                        ?: return,
+                subtitleMs =
+                    mpvSynchronization.getSynchronization(MpvSynchronizationKind.SUBTITLE)
+                        ?: return,
+            )
+        val defaults = mpvSynchronizationConfigStore.readDefaults().getOrElse { observed }
+        val effective =
+            playbackSynchronizationController.onFileLoaded(mediaId, defaults, observed)
+        mpvSynchronization.setSynchronization(MpvSynchronizationKind.AUDIO, effective.audioMs)
+        mpvSynchronization.setSynchronization(MpvSynchronizationKind.SUBTITLE, effective.subtitleMs)
+        updateSynchronizationUiState()
+    }
+
+    private fun canEditSynchronization(kind: MpvSynchronizationKind): Boolean =
+        playbackSynchronizationController.canEdit(
+            kind = kind,
+            hasPrimarySubtitle = _uiState.value.subtitleTracks.any(Track::selected),
+        )
+
+    private fun hasInitializedSynchronization(): Boolean =
+        ::mpvSynchronization.isInitialized &&
+            player.currentMediaItem?.mediaId?.let(
+                playbackSynchronizationController::isInitializedFor
+            ) == true
+
+    private fun updateSynchronizationUiState() {
+        if (!::mpvSynchronization.isInitialized) return
+        if (!hasInitializedSynchronization()) {
+            _uiState.update { it.copy(synchronization = null) }
+            return
+        }
+        _uiState.update {
+            it.copy(
+                synchronization =
+                    PlaybackSynchronizationUiState(
+                        audioBaselineMs =
+                            playbackSynchronizationController.baseline(
+                                MpvSynchronizationKind.AUDIO
+                            ),
+                        audioEffectiveMs =
+                            playbackSynchronizationController.effective(
+                                MpvSynchronizationKind.AUDIO
+                            ),
+                        subtitleBaselineMs =
+                            playbackSynchronizationController.baseline(
+                                MpvSynchronizationKind.SUBTITLE
+                            ),
+                        subtitleEffectiveMs =
+                            playbackSynchronizationController.effective(
+                                MpvSynchronizationKind.SUBTITLE
+                            ),
+                        canEditSubtitle =
+                            canEditSynchronization(MpvSynchronizationKind.SUBTITLE),
+                    )
+            )
         }
     }
 

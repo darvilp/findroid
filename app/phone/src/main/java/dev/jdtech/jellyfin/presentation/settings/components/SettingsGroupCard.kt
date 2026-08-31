@@ -27,6 +27,7 @@ import dev.jdtech.jellyfin.settings.presentation.models.PreferenceGroup
 import dev.jdtech.jellyfin.settings.presentation.models.PreferenceIntInput
 import dev.jdtech.jellyfin.settings.presentation.models.PreferenceLongInput
 import dev.jdtech.jellyfin.settings.presentation.models.PreferenceMultiSelect
+import dev.jdtech.jellyfin.settings.presentation.models.PreferenceMpvSynchronization
 import dev.jdtech.jellyfin.settings.presentation.models.PreferenceSelect
 import dev.jdtech.jellyfin.settings.presentation.models.PreferenceSwitch
 import dev.jdtech.jellyfin.settings.presentation.settings.SettingsAction
@@ -102,6 +103,19 @@ fun SettingsGroupCard(
                             preference = preference,
                             onUpdate = { value ->
                                 onAction(SettingsAction.OnUpdate(preference.copy(value = value)))
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    is PreferenceMpvSynchronization ->
+                        SettingsMpvSynchronizationCard(
+                            preference = preference,
+                            onUpdate = { value ->
+                                onAction(
+                                    SettingsAction.OnUpdateMpvSynchronization(
+                                        preference.kind,
+                                        value,
+                                    )
+                                )
                             },
                             modifier = Modifier.fillMaxWidth(),
                         )

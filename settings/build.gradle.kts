@@ -36,4 +36,5 @@ dependencies {
     implementation(libs.jellyfin.core)
 
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
 }

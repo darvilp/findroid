@@ -1,6 +1,7 @@
 package dev.jdtech.jellyfin.presentation.settings
 
 import android.app.Activity
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -72,6 +73,13 @@ fun SettingsScreen(
                     Timber.e(e)
                 }
             }
+            SettingsEvent.MpvSynchronizationConfigError ->
+                Toast.makeText(
+                        context,
+                        SettingsR.string.mpv_synchronization_config_error,
+                        Toast.LENGTH_LONG,
+                    )
+                    .show()
         }
     }
 

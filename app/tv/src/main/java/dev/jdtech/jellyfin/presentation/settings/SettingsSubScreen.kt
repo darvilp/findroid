@@ -1,6 +1,7 @@
 package dev.jdtech.jellyfin.presentation.settings
 
 import android.app.Activity
+import android.widget.Toast
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -82,6 +83,13 @@ fun SettingsSubScreen(
                     Timber.e(e)
                 }
             }
+            SettingsEvent.MpvSynchronizationConfigError ->
+                Toast.makeText(
+                        context,
+                        SettingsR.string.mpv_synchronization_config_error,
+                        Toast.LENGTH_LONG,
+                    )
+                    .show()
         }
     }
 
@@ -93,6 +101,9 @@ fun SettingsSubScreen(
                 is SettingsAction.OnUpdate -> {
                     viewModel.onAction(action)
                     viewModel.loadPreferences(indexes, DeviceType.TV)
+                }
+                is SettingsAction.OnUpdateMpvSynchronization -> {
+                    viewModel.onAction(action)
                 }
                 else -> Unit
             }

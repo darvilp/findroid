@@ -72,6 +72,10 @@
     <string name="extra_info_summary">Displays detailed information about Audio, Video and Subtitles</string>
     <string name="mb">MB</string>
     <string name="ms">ms</string>
+    <string name="default_audio_synchronization">Default audio synchronization</string>
+    <string name="default_subtitle_synchronization">Default subtitle synchronization</string>
+    <string name="mpv_synchronization_config_error">Could not read or save MPV synchronization settings.</string>
+    <string name="edit">Edit</string>
     <string name="seconds">s</string>
     <string name="app_language">App language</string>
     <string name="subtitles">Subtitles</string>

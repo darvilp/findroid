@@ -26,6 +26,7 @@ import dev.jdtech.jellyfin.settings.presentation.models.Preference
 import dev.jdtech.jellyfin.settings.presentation.models.PreferenceCategory
 import dev.jdtech.jellyfin.settings.presentation.models.PreferenceGroup
 import dev.jdtech.jellyfin.settings.presentation.models.PreferenceMultiSelect
+import dev.jdtech.jellyfin.settings.presentation.models.PreferenceMpvSynchronization
 import dev.jdtech.jellyfin.settings.presentation.models.PreferenceSelect
 import dev.jdtech.jellyfin.settings.presentation.models.PreferenceSwitch
 import dev.jdtech.jellyfin.settings.presentation.settings.SettingsAction
@@ -90,6 +91,22 @@ fun SettingsGroupCard(
                             SettingsMultiSelectCard(
                                 preference = preference,
                                 onClick = {},
+                                modifier =
+                                    Modifier.fillMaxWidth().onFocusChanged {
+                                        onFocusChange(it, preference)
+                                    },
+                            )
+                        is PreferenceMpvSynchronization ->
+                            SettingsMpvSynchronizationCard(
+                                preference = preference,
+                                onSave = { value ->
+                                    onAction(
+                                        SettingsAction.OnUpdateMpvSynchronization(
+                                            preference.kind,
+                                            value,
+                                        )
+                                    )
+                                },
                                 modifier =
                                     Modifier.fillMaxWidth().onFocusChanged {
                                         onFocusChange(it, preference)

@@ -8,6 +8,8 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.jdtech.jellyfin.settings.R
 import dev.jdtech.jellyfin.settings.domain.AppPreferences
+import dev.jdtech.jellyfin.settings.domain.MpvSynchronizationConfigStore
+import dev.jdtech.jellyfin.settings.domain.MpvSynchronizationKind
 import dev.jdtech.jellyfin.settings.presentation.enums.DeviceType
 import dev.jdtech.jellyfin.settings.presentation.models.PreferenceAppLanguage
 import dev.jdtech.jellyfin.settings.presentation.models.PreferenceCategory
@@ -15,6 +17,7 @@ import dev.jdtech.jellyfin.settings.presentation.models.PreferenceFileEdit
 import dev.jdtech.jellyfin.settings.presentation.models.PreferenceGroup
 import dev.jdtech.jellyfin.settings.presentation.models.PreferenceIntInput
 import dev.jdtech.jellyfin.settings.presentation.models.PreferenceLongInput
+import dev.jdtech.jellyfin.settings.presentation.models.PreferenceMpvSynchronization
 import dev.jdtech.jellyfin.settings.presentation.models.PreferenceMultiSelect
 import dev.jdtech.jellyfin.settings.presentation.models.PreferenceSelect
 import dev.jdtech.jellyfin.settings.presentation.models.PreferenceSwitch
@@ -26,13 +29,23 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
 @HiltViewModel
-class SettingsViewModel @Inject constructor(private val appPreferences: AppPreferences) :
+class SettingsViewModel @Inject constructor(
+    private val appPreferences: AppPreferences,
+    private val mpvSynchronizationConfigStore: MpvSynchronizationConfigStore,
+) :
     ViewModel() {
     private val _state = MutableStateFlow(SettingsState())
     val state = _state.asStateFlow()
 
     private val eventsChannel = Channel<SettingsEvent>()
     val events = eventsChannel.receiveAsFlow()
+
+    private val mpvSynchronizationConfigCoordinator =
+        MpvSynchronizationConfigCoordinator(
+            scope = viewModelScope,
+            readDefaults = mpvSynchronizationConfigStore::readDefaults,
+            writeConfig = mpvSynchronizationConfigStore::write,
+        )
 
     private val topLevelPreferences =
         listOf(
@@ -290,6 +303,21 @@ class SettingsViewModel @Inject constructor(private val appPreferences: AppPrefe
                                                                             optionValues = R.array.mpv_aos,
                                                                         ),
                                                                     ),
+                                                            ),
+                                                            PreferenceGroup(
+                                                                preferences =
+                                                                    listOf(
+                                                                        PreferenceMpvSynchronization(
+                                                                            nameStringResource = R.string.default_audio_synchronization,
+                                                                            kind = MpvSynchronizationKind.AUDIO,
+                                                                            valueMs = 0,
+                                                                        ),
+                                                                        PreferenceMpvSynchronization(
+                                                                            nameStringResource = R.string.default_subtitle_synchronization,
+                                                                            kind = MpvSynchronizationKind.SUBTITLE,
+                                                                            valueMs = 0,
+                                                                        ),
+                                                                    )
                                                             ),
                                                             PreferenceGroup(
                                                                 nameStringResource = R.string.advanced,
@@ -759,24 +787,46 @@ class SettingsViewModel @Inject constructor(private val appPreferences: AppPrefe
         )
 
     fun loadPreferences(indexes: IntArray = intArrayOf(), deviceType: DeviceType) {
-        viewModelScope.launch {
-            var preferences = topLevelPreferences
+        var preferences = topLevelPreferences
 
-            // Show preferences based on the name of the parent
-            for (index in indexes) {
-                // If index is root (Settings) don't search for category
-                if (index == R.string.title_settings) {
-                    break
-                }
-                val preference =
-                    preferences
-                        .flatMap { it.preferences }
-                        .filterIsInstance<PreferenceCategory>()
-                        .find { it.nameStringResource == index }
-                if (preference != null) {
-                    preferences = preference.nestedPreferenceGroups
-                }
+        // Show preferences based on the name of the parent
+        for (index in indexes) {
+            // If index is root (Settings) don't search for category
+            if (index == R.string.title_settings) {
+                break
             }
+            val preference =
+                preferences
+                    .flatMap { it.preferences }
+                    .filterIsInstance<PreferenceCategory>()
+                    .find { it.nameStringResource == index }
+            if (preference != null) {
+                preferences = preference.nestedPreferenceGroups
+            }
+        }
+
+        val configOperation =
+            if (
+                preferences.any { group ->
+                    group.preferences.any { it is PreferenceMpvSynchronization }
+                }
+            ) {
+                mpvSynchronizationConfigCoordinator.read()
+            } else {
+                null
+            }
+
+        viewModelScope.launch {
+            val synchronizationDefaults =
+                when (val outcome = configOperation?.await()) {
+                    is MpvSynchronizationConfigOutcome.Success -> outcome.defaults
+                    is MpvSynchronizationConfigOutcome.Failure -> {
+                        eventsChannel.send(SettingsEvent.MpvSynchronizationConfigError)
+                        return@launch
+                    }
+                    MpvSynchronizationConfigOutcome.SupersededFailure -> return@launch
+                    null -> null
+                }
 
             // Update all (visible) preferences with there current values
             preferences =
@@ -840,6 +890,13 @@ class SettingsViewModel @Inject constructor(private val appPreferences: AppPrefe
                                                         ),
                                                 )
                                             }
+                                            is PreferenceMpvSynchronization -> {
+                                                preference.copy(
+                                                    valueMs =
+                                                        checkNotNull(synchronizationDefaults)
+                                                            .value(preference.kind)
+                                                )
+                                            }
                                             is PreferenceLongInput -> {
                                                 preference.copy(
                                                     enabled =
@@ -893,8 +950,44 @@ class SettingsViewModel @Inject constructor(private val appPreferences: AppPrefe
                             action.preference.backendPreference,
                             action.preference.value,
                         )
+                    is PreferenceMpvSynchronization -> Unit
                 }
             }
+            is SettingsAction.OnUpdateMpvSynchronization ->
+                run {
+                    val operation =
+                        mpvSynchronizationConfigCoordinator.write(action.kind, action.valueMs)
+                    viewModelScope.launch {
+                        when (val outcome = operation.await()) {
+                            is MpvSynchronizationConfigOutcome.Success ->
+                                _state.emit(
+                                    _state.value.copy(
+                                        preferenceGroups =
+                                            _state.value.preferenceGroups.map { group ->
+                                                group.copy(
+                                                    preferences =
+                                                        group.preferences.map { preference ->
+                                                            if (preference is PreferenceMpvSynchronization) {
+                                                                preference.copy(
+                                                                    valueMs =
+                                                                        outcome.defaults.value(
+                                                                            preference.kind
+                                                                        )
+                                                                )
+                                                            } else {
+                                                                preference
+                                                            }
+                                                        }
+                                                )
+                                            }
+                                    )
+                                )
+                            is MpvSynchronizationConfigOutcome.Failure ->
+                                eventsChannel.send(SettingsEvent.MpvSynchronizationConfigError)
+                            MpvSynchronizationConfigOutcome.SupersededFailure -> Unit
+                        }
+                    }
+                }
             else -> Unit
         }
     }
