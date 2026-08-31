@@ -1,6 +1,20 @@
+# Findroid TV
+
+Findroid TV is an unofficial, experimental Android TV fork of [Findroid](https://github.com/jarnedemeulemeester/findroid). `darvilp` maintains this fork. The upstream Findroid project does not support or endorse it.
+
+Sideload prerelease APKs from [this fork's Releases page](https://github.com/darvilp/findroid/releases). Most current TVs use the `arm64-v8a` APK. Older or 32-bit TVs, including the tested Hisense, use `armeabi-v7a`. If you do not know the device ABI, use the larger universal APK. The `x86` and `x86_64` APKs target emulators.
+
+This fork is prerelease software. Expect bugs, and [report Android TV feedback](https://github.com/darvilp/findroid/issues/new?template=android-tv-feedback.yml).
+
+---
+
+## Upstream Findroid information
+
+The information below comes from the [official Findroid project](https://github.com/jarnedemeulemeester/findroid). The store badges install official Findroid, not the experimental Findroid TV fork.
+
 ![Findroid banner](images/findroid-banner.png)
 
-# Findroid
+### Findroid
 ![GitHub release (with filter)](https://img.shields.io/github/v/release/jarnedemeulemeester/findroid?style=for-the-badge)
 ![GitHub repo stars](https://img.shields.io/github/stars/jarnedemeulemeester/findroid?style=for-the-badge)
 ![GitHub issues](https://img.shields.io/github/issues/jarnedemeulemeester/findroid?style=for-the-badge)
@@ -19,12 +33,12 @@ I am developing this application in my spare time.
 [<img src="https://f-droid.org/badge/get-it-on.png" alt="Get it on F-Droid" height="80">](https://f-droid.org/packages/dev.jdtech.jellyfin)
 [<img src="https://gitlab.com/IzzyOnDroid/repo/-/raw/master/assets/IzzyOnDroid.png" alt="Get it on IzzyOnDroid" height="80">](https://apt.izzysoft.de/fdroid/index/apk/dev.jdtech.jellyfin)
 
-## Screenshots
+### Screenshots
 | Home                                | Library                             | Movie                           | Season                            | Episode                             |
 |-------------------------------------|-------------------------------------|---------------------------------|-----------------------------------|-------------------------------------|
 | ![Home](fastlane/metadata/android/en-US/images/phoneScreenshots/1_en-US.png) | ![Library](fastlane/metadata/android/en-US/images/phoneScreenshots/2_en-US.png) | ![Movie](fastlane/metadata/android/en-US/images/phoneScreenshots/3_en-US.png) | ![Season](fastlane/metadata/android/en-US/images/phoneScreenshots/4_en-US.png) | ![Episode](fastlane/metadata/android/en-US/images/phoneScreenshots/5_en-US.png) |
 
-## Features
+### Features
 - Completely native interface
 - Supported media items: movies, series, seasons, episodes 
   - Direct play only, (no transcoding)
@@ -51,18 +65,18 @@ I am developing this application in my spare time.
   - Skip button
   - Auto skip
 
-## Planned features
+### Planned features
 - Android TV
 - Websocket connection (Syncplay)
 - Chromecast support
 
-## Translating
+### Translating
 [JDTech Weblate](https://weblate.jdtech.dev) is a self-hosted instance of Weblate where you can translate this project and future projects of mine.
 
-## Questions?
+### Questions?
 We have a [Discord server](https://discord.gg/tg5VvTFwTV) to discuss future development or ask general questions.
 
-## License
+### License
 This project is licensed under [GPLv3](LICENSE).
 
 The logo is a combination of the Jellyfin logo and the Android robot.

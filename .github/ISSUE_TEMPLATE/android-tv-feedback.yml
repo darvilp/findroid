@@ -1,0 +1,118 @@
+name: Android TV feedback
+description: Report Findroid TV prerelease playback or navigation behavior
+labels: ["android-tv", "feedback"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for testing the experimental Findroid TV fork. Upstream Findroid does not support this fork.
+
+        Remove private information from logs and screenshots before posting. Never post passwords, server URLs or tokens, account data, device or LAN endpoints, or private media names.
+
+  - type: input
+    id: release-version
+    attributes:
+      label: Findroid TV release version
+      description: Enter the version shown in the release or app information.
+      placeholder: v1.1.0-atv.1
+    validations:
+      required: true
+
+  - type: input
+    id: device-model
+    attributes:
+      label: TV or device model
+      placeholder: Hisense 55U6G
+    validations:
+      required: true
+
+  - type: input
+    id: android-version
+    attributes:
+      label: Android TV or Google TV version
+      placeholder: Android TV 11
+    validations:
+      required: true
+
+  - type: input
+    id: jellyfin-version
+    attributes:
+      label: Jellyfin server version
+      placeholder: 10.10.7
+    validations:
+      required: true
+
+  - type: dropdown
+    id: player
+    attributes:
+      label: Selected player
+      options:
+        - ExoPlayer
+        - MPV
+    validations:
+      required: true
+
+  - type: textarea
+    id: media-formats
+    attributes:
+      label: Container, video, audio, and subtitle formats
+      description: List each known format. Write "none" for subtitles when the media has no subtitle track.
+      placeholder: |
+        Container: MKV
+        Video: H.265
+        Audio: E-AC-3
+        Subtitles: ASS
+    validations:
+      required: true
+
+  - type: dropdown
+    id: playback-decision
+    attributes:
+      label: Jellyfin playback decision
+      description: Use the Jellyfin playback dashboard or server logs to identify the decision.
+      options:
+        - Direct Play
+        - Remux
+        - Transcode
+        - Unknown
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction-steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open a movie details screen.
+        2. Select MPV.
+        3. Start playback.
+        4. Observe the result.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: sanitized-logs
+    attributes:
+      label: Sanitized logs
+      description: Remove passwords, server URLs or tokens, account data, device or LAN endpoints, and private media names. Logs are optional.
+      render: shell
+
+  - type: textarea
+    id: extra-context
+    attributes:
+      label: Extra context
+      description: Add optional screenshots or details that help reproduce the behavior. Remove private information first.
