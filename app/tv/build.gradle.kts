@@ -10,17 +10,23 @@ plugins {
 val findroidTvDebug =
     findroidTvVariant("debug", Versions.APP_NAME, Versions.APP_CODE, Versions.ATV_RELEASE_REVISION)
 val findroidTvRelease =
-    findroidTvVariant("release", Versions.APP_NAME, Versions.APP_CODE, Versions.ATV_RELEASE_REVISION)
+    findroidTvVariant(
+        "release",
+        Versions.APP_NAME,
+        Versions.APP_CODE,
+        Versions.ATV_RELEASE_REVISION,
+    )
 val findroidTvBaseApplicationId = findroidTvDebug.applicationId.removeSuffix(".debug")
 val findroidTvUniversalApk =
     providers.gradleProperty("findroidTvUniversalApk").map(String::toBoolean).orElse(false)
 val findroidTvSigningEnvironment =
     listOf(
-        "FINDROID_TV_KEYSTORE_FILE",
-        "FINDROID_TV_KEYSTORE_PASSWORD",
-        "FINDROID_TV_KEY_ALIAS",
-        "FINDROID_TV_KEY_PASSWORD",
-    ).associateWith { providers.environmentVariable(it).orNull }
+            "FINDROID_TV_KEYSTORE_FILE",
+            "FINDROID_TV_KEYSTORE_PASSWORD",
+            "FINDROID_TV_KEY_ALIAS",
+            "FINDROID_TV_KEY_PASSWORD",
+        )
+        .associateWith { providers.environmentVariable(it).orNull }
 val findroidTvMissingSigningInputs =
     findroidTvSigningEnvironment.filterValues { it.isNullOrBlank() }.keys
 
@@ -40,10 +46,12 @@ android {
 
     buildTypes {
         named("debug") {
-            applicationIdSuffix = findroidTvDebug.applicationId.removePrefix(findroidTvBaseApplicationId)
+            applicationIdSuffix =
+                findroidTvDebug.applicationId.removePrefix(findroidTvBaseApplicationId)
         }
         named("release") {
-            applicationIdSuffix = findroidTvRelease.applicationId.removePrefix(findroidTvBaseApplicationId)
+            applicationIdSuffix =
+                findroidTvRelease.applicationId.removePrefix(findroidTvBaseApplicationId)
             resValue("string", "app_name", findroidTvRelease.label)
             isMinifyEnabled = true
             isShrinkResources = true
@@ -55,10 +63,15 @@ android {
             if (findroidTvMissingSigningInputs.isEmpty()) {
                 signingConfig =
                     signingConfigs.create("findroidTvRelease") {
-                        storeFile = file(findroidTvSigningEnvironment.getValue("FINDROID_TV_KEYSTORE_FILE")!!)
-                        storePassword = findroidTvSigningEnvironment.getValue("FINDROID_TV_KEYSTORE_PASSWORD")
+                        storeFile =
+                            file(
+                                findroidTvSigningEnvironment.getValue("FINDROID_TV_KEYSTORE_FILE")!!
+                            )
+                        storePassword =
+                            findroidTvSigningEnvironment.getValue("FINDROID_TV_KEYSTORE_PASSWORD")
                         keyAlias = findroidTvSigningEnvironment.getValue("FINDROID_TV_KEY_ALIAS")
-                        keyPassword = findroidTvSigningEnvironment.getValue("FINDROID_TV_KEY_PASSWORD")
+                        keyPassword =
+                            findroidTvSigningEnvironment.getValue("FINDROID_TV_KEY_PASSWORD")
                     }
             }
         }
@@ -126,15 +139,13 @@ androidComponents {
 }
 
 gradle.taskGraph.whenReady {
-    val releaseArtifactRequested =
-        allTasks.any { task ->
-            task.project == project &&
-                findroidTvReleaseArtifactRequested(task.name)
-        }
+    val releaseArtifactRequested = allTasks.any { task ->
+        task.project == project && findroidTvReleaseArtifactRequested(task.name)
+    }
     if (releaseArtifactRequested && findroidTvMissingSigningInputs.isNotEmpty()) {
         error(
             "Findroid TV release signing requires environment variables: " +
-                findroidTvMissingSigningInputs.sorted().joinToString(", "),
+                findroidTvMissingSigningInputs.sorted().joinToString(", ")
         )
     }
 }
