@@ -38,12 +38,13 @@ for apk in "${artifacts[@]}"; do
     [[ "$badging" == *"package: name='$FINDROID_TV_APPLICATION_ID' versionCode='$FINDROID_TV_VERSION_CODE' versionName='$FINDROID_TV_VERSION_NAME'"* ]] ||
         fail "package or version mismatch in ${apk##*/}"
     signer=$("$tool_dir/apksigner" verify --verbose --print-certs "$apk") || fail "signature verification failed for ${apk##*/}"
-    if printf '%s\n' "$signer" | grep -Eq '^Signer #[2-9][0-9]*:? certificate SHA-256 digest:'; then
+    mapfile -t signer_counts < <(printf '%s\n' "$signer" | sed -n -E 's/^Number of signers: ([0-9]+)$/\1/p')
+    if ((${#signer_counts[@]} != 1)) || [[ "${signer_counts[0]}" != 1 ]]; then
         fail "exactly one signer is required for ${apk##*/}"
     fi
     mapfile -t signer_fingerprints < <(
         printf '%s\n' "$signer" |
-            sed -n -E 's/^(Signer #[0-9]+|V[0-9]+ Signer):? certificate SHA-256 digest: //p' |
+            sed -n -E 's/^Signer #1 certificate SHA-256 digest: //p' |
             sort -u
     )
     ((${#signer_fingerprints[@]} == 1)) || fail "exactly one signer is required for ${apk##*/}"

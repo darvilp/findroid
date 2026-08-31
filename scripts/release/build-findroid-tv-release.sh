@@ -34,18 +34,25 @@ gradlew=${FINDROID_TV_GRADLEW:-$repo_root/gradlew}
 mkdir -p "$output_dir"
 output_dir=$(cd "$output_dir" && pwd)
 apk_dir="$repo_root/app/tv/build/outputs/apk/libre/release"
+if [[ -n "${FINDROID_TV_APK_OUTPUT_DIR:-}" ]]; then
+    [[ -n "${FINDROID_TV_GRADLEW:-}" ]] ||
+        fail "FINDROID_TV_APK_OUTPUT_DIR is only supported with FINDROID_TV_GRADLEW"
+    apk_dir=$(realpath -m "$FINDROID_TV_APK_OUTPUT_DIR")
+fi
 stage=$(mktemp -d "$output_dir/.findroid-tv-release.XXXXXX")
 backup="$stage/backup"
 mkdir "$backup"
-promoting=false
+backed_paths=()
+promoted_paths=()
 rollback() {
     status=$?
-    if [[ "$promoting" == true ]]; then
-        for managed in "${managed_paths[@]}"; do
-            [[ -e "$managed" ]] && rm -f -- "$managed"
-        done
-        for prior in "$backup"/*; do [[ -e "$prior" ]] && mv -- "$prior" "$output_dir/${prior##*/}"; done
-    fi
+    for promoted in "${promoted_paths[@]}"; do
+        [[ -e "$promoted" ]] && rm -f -- "$promoted"
+    done
+    for backed in "${backed_paths[@]}"; do
+        prior="$backup/${backed##*/}"
+        [[ -e "$prior" ]] && mv -- "$prior" "$backed"
+    done
     rm -rf -- "$stage"
     exit "$status"
 }
@@ -67,12 +74,17 @@ done
 [[ -f "$apk_dir/tv-libre-release.apk" ]] || fail "universal APK is missing"
 cp -- "$apk_dir/tv-libre-release.apk" "$stage/$artifact_prefix-universal.apk"
 
-promoting=true
 for managed in "${managed_paths[@]}"; do
-    [[ -e "$managed" ]] && mv -- "$managed" "$backup/${managed##*/}"
+    if [[ -e "$managed" ]]; then
+        mv -- "$managed" "$backup/${managed##*/}"
+        backed_paths+=("$managed")
+    fi
 done
 for artifact in "$stage"/*.apk; do
-    mv -f -- "$artifact" "$output_dir/${artifact##*/}"
+    promoted="$output_dir/${artifact##*/}"
+    mv -f -- "$artifact" "$promoted"
+    promoted_paths+=("$promoted")
 done
-promoting=false
+trap - EXIT
+rm -rf -- "$stage"
 echo "Findroid TV release APKs written to $output_dir"

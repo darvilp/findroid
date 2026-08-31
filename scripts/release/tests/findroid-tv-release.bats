@@ -12,6 +12,21 @@ setup() {
     touch "$FINDROID_TV_KEYSTORE_FILE"
     export PATH="$TEST_ROOT/bin:$PATH"
     export REPO_ROOT="$BATS_TEST_DIRNAME/../../.."
+    export FINDROID_TV_APK_OUTPUT_DIR="$TEST_ROOT/fake-apk-output"
+    export PRODUCTION_APK_OUTPUT="$REPO_ROOT/app/tv/build/outputs/apk/libre/release/tv-libre-release.apk"
+    if [[ -e "$PRODUCTION_APK_OUTPUT" ]]; then
+        production_apk_sentinel="$(sha256sum "$PRODUCTION_APK_OUTPUT")"
+    else
+        production_apk_sentinel=absent
+    fi
+}
+
+assert_production_apk_output_unchanged() {
+    if [[ "$production_apk_sentinel" == absent ]]; then
+        [ ! -e "$PRODUCTION_APK_OUTPUT" ]
+    else
+        [ "$(sha256sum "$PRODUCTION_APK_OUTPUT")" = "$production_apk_sentinel" ]
+    fi
 }
 
 make_fake_gradle() {
@@ -30,7 +45,7 @@ case " $* " in
 esac
 EOF
     chmod +x "$FINDROID_TV_GRADLEW"
-    export FAKE_APK_OUTPUT="$REPO_ROOT/app/tv/build/outputs/apk/libre/release"
+    export FAKE_APK_OUTPUT="$FINDROID_TV_APK_OUTPUT_DIR"
 }
 
 @test "build rejects output beneath the Gradle-cleaned TV build directory" {
@@ -56,23 +71,77 @@ EOF
     [ "$(find "$TEST_ROOT/out" -maxdepth 1 -name '*.apk' | wc -l)" -eq 5 ]
 }
 
-@test "promotion failure rolls back every managed artifact" {
+seed_prior_managed_set() {
     make_fake_gradle
     run "$REPO_ROOT/scripts/release/build-findroid-tv-release.sh" "$TEST_ROOT/out"
     [ "$status" -eq 0 ]
-    cp "$TEST_ROOT/out/findroid-tv-1.1.0-atv.1-arm64-v8a.apk" "$TEST_ROOT/old"
+    for abi in armeabi-v7a arm64-v8a x86 x86_64 universal; do
+        printf 'old-%s' "$abi" >"$TEST_ROOT/out/findroid-tv-1.1.0-atv.1-$abi.apk"
+    done
+    printf old-checksums >"$TEST_ROOT/out/SHA256SUMS"
+    printf unrelated >"$TEST_ROOT/out/unrelated.txt"
+    rm -rf -- "$TEST_ROOT/prior"
+    mkdir "$TEST_ROOT/prior"
+    cp "$TEST_ROOT/out"/findroid-tv-*.apk "$TEST_ROOT/out/SHA256SUMS" "$TEST_ROOT/prior/"
+}
+
+assert_prior_managed_set_and_unrelated_survive() {
+    for prior in "$TEST_ROOT/prior"/*; do
+        cmp "$prior" "$TEST_ROOT/out/${prior##*/}"
+    done
+    [ "$(cat "$TEST_ROOT/out/unrelated.txt")" = unrelated ]
+    assert_production_apk_output_unchanged
+}
+
+make_failing_mv() {
+    local kind=$1
+    local failure_index=$2
     cat >"$TEST_ROOT/bin/mv" <<'EOF'
 #!/usr/bin/env bash
-for arg in "$@"; do
-    if [[ "$arg" == *'.findroid-tv-release.'*'/findroid-tv-'* && "$arg" != *'/backup/'* ]]; then exit 9; fi
-done
+set -eu
+source=${@: -2:1}
+destination=${@: -1}
+if [[ "${FAIL_MV_KIND:-}" == backup && "$destination" == */backup/* ]]; then
+    count_file="$TEST_ROOT/backup-mv-count"
+elif [[ "${FAIL_MV_KIND:-}" == promote && "$source" == *'/.findroid-tv-release.'* && "$source" != */backup/* ]]; then
+    count_file="$TEST_ROOT/promote-mv-count"
+else
+    exec /usr/bin/mv "$@"
+fi
+count=0
+[[ -f "$count_file" ]] && count=$(<"$count_file")
+count=$((count + 1))
+printf '%s' "$count" >"$count_file"
+[[ "$count" -eq "${FAIL_MV_INDEX:?}" ]] && exit 9
 exec /usr/bin/mv "$@"
 EOF
     chmod +x "$TEST_ROOT/bin/mv"
-    run "$REPO_ROOT/scripts/release/build-findroid-tv-release.sh" "$TEST_ROOT/out"
-    [ "$status" -ne 0 ]
-    cmp "$TEST_ROOT/old" "$TEST_ROOT/out/findroid-tv-1.1.0-atv.1-arm64-v8a.apk"
-    [ "$(find "$TEST_ROOT/out" -maxdepth 1 -name '*.apk' | wc -l)" -eq 5 ]
+    export FAIL_MV_KIND=$kind
+    export FAIL_MV_INDEX=$failure_index
+}
+
+@test "rollback restores every backed file without deleting untouched old files after first middle and final backup failures" {
+    for failure_index in 1 3 6; do
+        seed_prior_managed_set
+        make_failing_mv backup "$failure_index"
+        run "$REPO_ROOT/scripts/release/build-findroid-tv-release.sh" "$TEST_ROOT/out"
+        [ "$status" -ne 0 ]
+        assert_prior_managed_set_and_unrelated_survive
+        rm -f "$TEST_ROOT/backup-mv-count"
+        rm -f "$TEST_ROOT/bin/mv"
+    done
+}
+
+@test "rollback removes only promoted new files and restores all backed files after first middle and final promotion failures" {
+    for failure_index in 1 3 5; do
+        seed_prior_managed_set
+        make_failing_mv promote "$failure_index"
+        run "$REPO_ROOT/scripts/release/build-findroid-tv-release.sh" "$TEST_ROOT/out"
+        [ "$status" -ne 0 ]
+        assert_prior_managed_set_and_unrelated_survive
+        rm -f "$TEST_ROOT/promote-mv-count"
+        rm -f "$TEST_ROOT/bin/mv"
+    done
 }
 
 make_fake_tools() {
@@ -86,6 +155,8 @@ echo "package: name='$package' versionCode='$code' versionName='$version'"
 EOF
     cat >"$ANDROID_HOME/build-tools/37.0.0/apksigner" <<EOF
 #!/usr/bin/env bash
+echo 'Verifies'
+echo 'Number of signers: 1'
 echo 'Signer #1 certificate SHA-256 digest: $fingerprint'
 EOF
     cat >"$ANDROID_HOME/build-tools/37.0.0/zipalign" <<'EOF'
@@ -148,7 +219,7 @@ EOF
     sed -i 's/AA:BB/CC:DD/' "$ANDROID_HOME/build-tools/37.0.0/apksigner"
     for abi in armeabi-v7a arm64-v8a x86 x86_64 universal; do touch "$TEST_ROOT/out/findroid-tv-1.1.0-atv.1-$abi.apk"; done
     # Give one artifact a distinct signer result.
-    sed -i '/echo/i [[ "${@: -1}" == *x86.apk ]] \&\& echo "Signer #1 certificate SHA-256 digest: EE:FF" \&\& exit 0' "$ANDROID_HOME/build-tools/37.0.0/apksigner"
+    sed -i '/echo/i [[ "${@: -1}" == *x86.apk ]] \&\& { echo "Number of signers: 1"; echo "Signer #1 certificate SHA-256 digest: EE:FF"; exit 0; }' "$ANDROID_HOME/build-tools/37.0.0/apksigner"
     run "$REPO_ROOT/scripts/release/verify-findroid-tv-release.sh" "$TEST_ROOT/out"
     [ "$status" -ne 0 ]
     [[ "$output" == *"certificate fingerprint mismatch"* ]]
@@ -156,7 +227,17 @@ EOF
 
 @test "verification rejects an APK with an additional signer" {
     make_fake_tools
-    sed -i '/echo/a echo "Signer #2 certificate SHA-256 digest: 11:22"' "$ANDROID_HOME/build-tools/37.0.0/apksigner"
+    sed -i 's/Number of signers: 1/Number of signers: 2/' "$ANDROID_HOME/build-tools/37.0.0/apksigner"
+    sed -i '/Signer #1/a echo "Signer #2 certificate SHA-256 digest: 11:22"' "$ANDROID_HOME/build-tools/37.0.0/apksigner"
+    for abi in armeabi-v7a arm64-v8a x86 x86_64 universal; do touch "$TEST_ROOT/out/findroid-tv-1.1.0-atv.1-$abi.apk"; done
+    run "$REPO_ROOT/scripts/release/verify-findroid-tv-release.sh" "$TEST_ROOT/out"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"exactly one signer"* ]]
+}
+
+@test "verification rejects Build Tools 37 output without the authoritative one-signer count" {
+    make_fake_tools
+    sed -i '/Number of signers/d' "$ANDROID_HOME/build-tools/37.0.0/apksigner"
     for abi in armeabi-v7a arm64-v8a x86 x86_64 universal; do touch "$TEST_ROOT/out/findroid-tv-1.1.0-atv.1-$abi.apk"; done
     run "$REPO_ROOT/scripts/release/verify-findroid-tv-release.sh" "$TEST_ROOT/out"
     [ "$status" -ne 0 ]
