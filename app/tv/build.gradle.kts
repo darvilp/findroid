@@ -7,13 +7,30 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+val findroidTvDebug =
+    findroidTvVariant("debug", Versions.APP_NAME, Versions.APP_CODE, Versions.ATV_RELEASE_REVISION)
+val findroidTvRelease =
+    findroidTvVariant("release", Versions.APP_NAME, Versions.APP_CODE, Versions.ATV_RELEASE_REVISION)
+val findroidTvBaseApplicationId = findroidTvDebug.applicationId.removeSuffix(".debug")
+val findroidTvUniversalApk =
+    providers.gradleProperty("findroidTvUniversalApk").map(String::toBoolean).orElse(false)
+val findroidTvSigningEnvironment =
+    listOf(
+        "FINDROID_TV_KEYSTORE_FILE",
+        "FINDROID_TV_KEYSTORE_PASSWORD",
+        "FINDROID_TV_KEY_ALIAS",
+        "FINDROID_TV_KEY_PASSWORD",
+    ).associateWith { providers.environmentVariable(it).orNull }
+val findroidTvMissingSigningInputs =
+    findroidTvSigningEnvironment.filterValues { it.isNullOrBlank() }.keys
+
 android {
     namespace = "dev.jdtech.jellyfin"
     compileSdk = Versions.COMPILE_SDK
     buildToolsVersion = Versions.BUILD_TOOLS
 
     defaultConfig {
-        applicationId = "dev.jdtech.jellyfin"
+        applicationId = findroidTvBaseApplicationId
         minSdk = Versions.MIN_SDK
         targetSdk = Versions.TARGET_SDK
 
@@ -22,14 +39,28 @@ android {
     }
 
     buildTypes {
-        named("debug") { applicationIdSuffix = ".debug" }
+        named("debug") {
+            applicationIdSuffix = findroidTvDebug.applicationId.removePrefix(findroidTvBaseApplicationId)
+        }
         named("release") {
+            applicationIdSuffix = findroidTvRelease.applicationId.removePrefix(findroidTvBaseApplicationId)
+            resValue("string", "app_name", findroidTvRelease.label)
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+
+            if (findroidTvMissingSigningInputs.isEmpty()) {
+                signingConfig =
+                    signingConfigs.create("findroidTvRelease") {
+                        storeFile = file(findroidTvSigningEnvironment.getValue("FINDROID_TV_KEYSTORE_FILE")!!)
+                        storePassword = findroidTvSigningEnvironment.getValue("FINDROID_TV_KEYSTORE_PASSWORD")
+                        keyAlias = findroidTvSigningEnvironment.getValue("FINDROID_TV_KEY_ALIAS")
+                        keyPassword = findroidTvSigningEnvironment.getValue("FINDROID_TV_KEY_PASSWORD")
+                    }
+            }
         }
         register("staging") {
             initWith(getByName("release"))
@@ -51,9 +82,11 @@ android {
             // This is needed due to a "Multiple shrunk-resources files found in directory" error
             // present since AGP 8.9.0, for more info see:
             // https://issuetracker.google.com/issues/402800800
-            val isBuildingBundle =
-                gradle.startParameter.taskNames.any { it.lowercase().contains("bundle") }
-            isEnable = !isBuildingBundle
+            isEnable =
+                findroidTvAbiSplitsEnabled(
+                    gradle.startParameter.taskNames,
+                    findroidTvUniversalApk.get(),
+                )
 
             reset()
             include("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
@@ -70,6 +103,7 @@ android {
     buildFeatures {
         buildConfig = true
         compose = true
+        resValues = true
     }
 
     packaging { resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" } }
@@ -79,6 +113,30 @@ android {
         includeInApk = false
         // Disables dependency metadata when building Android App Bundles.
         includeInBundle = false
+    }
+}
+
+androidComponents {
+    onVariants(selector().withBuildType("release")) { variant ->
+        variant.outputs.forEach { output ->
+            output.versionName.set(findroidTvRelease.versionName)
+            output.versionCode.set(findroidTvRelease.versionCode)
+        }
+    }
+}
+
+gradle.taskGraph.whenReady {
+    val releaseArtifactRequested =
+        allTasks.any { task ->
+            task.project == project &&
+                task.name.contains("Release") &&
+                listOf("assemble", "bundle", "package", "sign").any(task.name::startsWith)
+        }
+    if (releaseArtifactRequested && findroidTvMissingSigningInputs.isNotEmpty()) {
+        error(
+            "Findroid TV release signing requires environment variables: " +
+                findroidTvMissingSigningInputs.sorted().joinToString(", "),
+        )
     }
 }
 
