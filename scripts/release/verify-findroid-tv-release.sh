@@ -10,7 +10,7 @@ repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 # The path is anchored to the discovered repository root.
 # shellcheck disable=SC1091
 source "$repo_root/scripts/release/findroid-tv-release.env"
-rm -f -- "$artifact_dir/SHA256SUMS"
+rm -f -- "$artifact_dir/SHA256SUMS" "$artifact_dir/CERTIFICATE_SHA256"
 
 sdk_root=${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}
 [[ -n "$sdk_root" ]] || fail "ANDROID_HOME or ANDROID_SDK_ROOT is required"
@@ -74,9 +74,12 @@ expected=$(printf '%s\n' "${abis[@]}" | sort)
     names=()
     for apk in "${artifacts[@]}"; do names+=("${apk##*/}"); done
     checksum_tmp=$(mktemp .SHA256SUMS.XXXXXX)
-    trap 'rm -f -- "$checksum_tmp"' EXIT
+    fingerprint_tmp=$(mktemp .CERTIFICATE_SHA256.XXXXXX)
+    trap 'rm -f -- "$checksum_tmp" "$fingerprint_tmp"' EXIT
     LC_ALL=C printf '%s\n' "${names[@]}" | sort | xargs sha256sum >"$checksum_tmp"
+    printf '%s\n' "$common_fingerprint" >"$fingerprint_tmp"
     mv -- "$checksum_tmp" SHA256SUMS
+    mv -- "$fingerprint_tmp" CERTIFICATE_SHA256
     trap - EXIT
 )
 echo "Findroid TV release verification passed; certificate SHA-256: $common_fingerprint"

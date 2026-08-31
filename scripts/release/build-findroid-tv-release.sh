@@ -61,7 +61,7 @@ managed_paths=()
 for abi in armeabi-v7a arm64-v8a x86 x86_64 universal; do
     managed_paths+=("$output_dir/$artifact_prefix-$abi.apk")
 done
-managed_paths+=("$output_dir/SHA256SUMS")
+managed_paths+=("$output_dir/SHA256SUMS" "$output_dir/CERTIFICATE_SHA256")
 
 "$gradlew" --console=plain :app:tv:clean :app:tv:assembleLibreRelease
 for abi in armeabi-v7a arm64-v8a x86 x86_64; do

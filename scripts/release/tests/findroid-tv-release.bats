@@ -79,10 +79,12 @@ seed_prior_managed_set() {
         printf 'old-%s' "$abi" >"$TEST_ROOT/out/findroid-tv-1.1.0-atv.1-$abi.apk"
     done
     printf old-checksums >"$TEST_ROOT/out/SHA256SUMS"
+    printf old-certificate >"$TEST_ROOT/out/CERTIFICATE_SHA256"
     printf unrelated >"$TEST_ROOT/out/unrelated.txt"
     rm -rf -- "$TEST_ROOT/prior"
     mkdir "$TEST_ROOT/prior"
-    cp "$TEST_ROOT/out"/findroid-tv-*.apk "$TEST_ROOT/out/SHA256SUMS" "$TEST_ROOT/prior/"
+    cp "$TEST_ROOT/out"/findroid-tv-*.apk "$TEST_ROOT/out/SHA256SUMS" \
+        "$TEST_ROOT/out/CERTIFICATE_SHA256" "$TEST_ROOT/prior/"
 }
 
 assert_prior_managed_set_and_unrelated_survive() {
@@ -288,9 +290,11 @@ EOF
     make_fake_tools wrong.package
     for abi in armeabi-v7a arm64-v8a x86 x86_64 universal; do touch "$TEST_ROOT/out/findroid-tv-1.1.0-atv.1-$abi.apk"; done
     echo stale >"$TEST_ROOT/out/SHA256SUMS"
+    echo stale >"$TEST_ROOT/out/CERTIFICATE_SHA256"
     run "$REPO_ROOT/scripts/release/verify-findroid-tv-release.sh" "$TEST_ROOT/out"
     [ "$status" -ne 0 ]
     [ ! -e "$TEST_ROOT/out/SHA256SUMS" ]
+    [ ! -e "$TEST_ROOT/out/CERTIFICATE_SHA256" ]
 }
 
 @test "verification writes stable artifact-only checksums" {
@@ -304,4 +308,43 @@ EOF
     [ "$(cat "$TEST_ROOT/out/SHA256SUMS")" = "$first" ]
     [[ "$first" != *"$TEST_ROOT"* ]]
     [ "$(wc -l <"$TEST_ROOT/out/SHA256SUMS")" -eq 5 ]
+    [ "$(cat "$TEST_ROOT/out/CERTIFICATE_SHA256")" = "AA:BB" ]
+}
+
+@test "release notes certificate must exactly match the verified artifact signer" {
+    local actual=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    local other=fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210
+    printf '%s\n' "$actual" >"$TEST_ROOT/out/CERTIFICATE_SHA256"
+    printf 'Verified release certificate SHA-256: `%s`\n' "$actual" >"$TEST_ROOT/notes.md"
+
+    run "$REPO_ROOT/scripts/release/verify-findroid-tv-release-notes.sh" \
+        "$TEST_ROOT/notes.md" "$TEST_ROOT/out/CERTIFICATE_SHA256"
+    [ "$status" -eq 0 ]
+
+    printf 'Verified release certificate SHA-256: `%s`\n' "$other" >"$TEST_ROOT/notes.md"
+    run "$REPO_ROOT/scripts/release/verify-findroid-tv-release-notes.sh" \
+        "$TEST_ROOT/notes.md" "$TEST_ROOT/out/CERTIFICATE_SHA256"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"does not match verified artifacts"* ]]
+}
+
+@test "release notes certificate rejects placeholders malformed values and duplicate declarations" {
+    local actual=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    printf '%s\n' "$actual" >"$TEST_ROOT/out/CERTIFICATE_SHA256"
+
+    printf 'Verified release certificate SHA-256: `CERTIFICATE_SHA256_PLACEHOLDER`\n' >"$TEST_ROOT/notes.md"
+    run "$REPO_ROOT/scripts/release/verify-findroid-tv-release-notes.sh" \
+        "$TEST_ROOT/notes.md" "$TEST_ROOT/out/CERTIFICATE_SHA256"
+    [ "$status" -ne 0 ]
+
+    printf 'Verified release certificate SHA-256: `1234`\n' >"$TEST_ROOT/notes.md"
+    run "$REPO_ROOT/scripts/release/verify-findroid-tv-release-notes.sh" \
+        "$TEST_ROOT/notes.md" "$TEST_ROOT/out/CERTIFICATE_SHA256"
+    [ "$status" -ne 0 ]
+
+    printf 'Verified release certificate SHA-256: `%s`\nVerified release certificate SHA-256: `%s`\n' \
+        "$actual" "$actual" >"$TEST_ROOT/notes.md"
+    run "$REPO_ROOT/scripts/release/verify-findroid-tv-release-notes.sh" \
+        "$TEST_ROOT/notes.md" "$TEST_ROOT/out/CERTIFICATE_SHA256"
+    [ "$status" -ne 0 ]
 }

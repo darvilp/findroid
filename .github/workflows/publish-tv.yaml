@@ -58,6 +58,7 @@ jobs:
             ${{ runner.temp }}/findroid-tv-assets/findroid-tv-1.1.0-atv.1-x86_64.apk
             ${{ runner.temp }}/findroid-tv-assets/findroid-tv-1.1.0-atv.1-universal.apk
             ${{ runner.temp }}/findroid-tv-assets/SHA256SUMS
+            ${{ runner.temp }}/findroid-tv-assets/CERTIFICATE_SHA256
           if-no-files-found: error
 
   release:
@@ -92,6 +93,16 @@ jobs:
         with:
           name: findroid-tv-release-assets
           path: ${{ runner.temp }}/findroid-tv-assets
+
+      - name: Reverify assets and release certificate claim
+        shell: bash
+        run: |
+          set -euo pipefail
+          assets="$RUNNER_TEMP/findroid-tv-assets"
+          notes="docs/releases/${GITHUB_REF_NAME}.md"
+          scripts/release/verify-findroid-tv-release.sh "$assets"
+          scripts/release/verify-findroid-tv-release-notes.sh \
+            "$notes" "$assets/CERTIFICATE_SHA256"
 
       - name: Create draft prerelease
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3

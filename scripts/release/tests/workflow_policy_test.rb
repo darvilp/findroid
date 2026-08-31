@@ -29,6 +29,17 @@ class WorkflowPolicyTest < Minitest::Test
     assert_equal true, release.fetch("with").fetch("prerelease")
     assert release_steps.any? { |step| step["run"]&.include?("CERTIFICATE_SHA256_PLACEHOLDER") }
     assert release_steps.any? { |step| step["run"]&.include?("FINDROID_TV_RELEASE_TAG") }
+    download_index = release_steps.index { |step| step.fetch("uses", "").start_with?("actions/download-artifact@") }
+    verification_index = release_steps.index do |step|
+      step["run"]&.include?("verify-findroid-tv-release.sh") &&
+        step["run"]&.include?("verify-findroid-tv-release-notes.sh")
+    end
+    release_index = release_steps.index { |step| step.fetch("uses", "").start_with?("softprops/action-gh-release@") }
+    refute_nil download_index
+    refute_nil verification_index
+    refute_nil release_index
+    assert_operator download_index, :<, verification_index
+    assert_operator verification_index, :<, release_index
     workflow.fetch("jobs").each_value do |job|
       job.fetch("steps").each do |step|
         next unless step["uses"]

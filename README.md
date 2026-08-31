@@ -2,7 +2,7 @@
 
 Findroid TV is an unofficial, experimental Android TV fork of [Findroid](https://github.com/jarnedemeulemeester/findroid). `darvilp` maintains this fork. The upstream Findroid project does not support or endorse it.
 
-Sideload prerelease APKs from [this fork's Releases page](https://github.com/darvilp/findroid/releases). Most current TVs use the `arm64-v8a` APK. Older or 32-bit TVs, including the tested Hisense, use `armeabi-v7a`. If you do not know the device ABI, use the larger universal APK. The `x86` and `x86_64` APKs target emulators.
+Sideload prerelease APKs from [this fork's Releases page](https://github.com/darvilp/findroid/releases). Most current TVs use the `arm64-v8a` APK. Older or 32-bit TVs use `armeabi-v7a`. If you do not know the device ABI, use the larger universal APK. The `x86` and `x86_64` APKs target emulators.
 
 This fork is prerelease software. Expect bugs, and [report Android TV feedback](https://github.com/darvilp/findroid/issues/new?template=android-tv-feedback.yml).
 
