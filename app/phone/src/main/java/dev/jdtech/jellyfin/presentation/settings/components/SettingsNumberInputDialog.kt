@@ -76,6 +76,7 @@ fun SettingsNumberInputDialog(
     onUpdate: (String) -> Unit,
     onDismissRequest: () -> Unit,
     suffix: String? = null,
+    allowNegative: Boolean = false,
 ) {
     var textFieldValue by remember {
         mutableStateOf(
@@ -84,9 +85,6 @@ fun SettingsNumberInputDialog(
     }
 
     val focusRequester = remember { FocusRequester() }
-
-    // Only digits pattern
-    val pattern = remember { Regex("^\\d+\$") }
 
     LaunchedEffect(true) { focusRequester.requestFocus() }
 
@@ -116,20 +114,29 @@ fun SettingsNumberInputDialog(
             OutlinedTextField(
                 value = textFieldValue,
                 onValueChange = {
-                    if (it.text.isEmpty() || it.text.matches(pattern)) {
+                    if (isValidNumberInput(it.text, allowNegative)) {
                         textFieldValue = it
                     }
                 },
                 modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
                 suffix = { suffix?.let { Text(text = it) } },
                 keyboardOptions =
-                    KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                    KeyboardOptions(
+                        keyboardType = numberInputKeyboardType(allowNegative),
+                        imeAction = ImeAction.Done,
+                    ),
                 keyboardActions = KeyboardActions(onDone = { onUpdate(textFieldValue.text) }),
                 singleLine = true,
             )
         }
     }
 }
+
+internal fun isValidNumberInput(value: String, allowNegative: Boolean): Boolean =
+    if (allowNegative) value.matches(Regex("^-?\\d*\$")) else value.matches(Regex("^\\d*\$"))
+
+internal fun numberInputKeyboardType(allowNegative: Boolean): KeyboardType =
+    if (allowNegative) KeyboardType.Text else KeyboardType.Number
 
 @Preview
 @Composable

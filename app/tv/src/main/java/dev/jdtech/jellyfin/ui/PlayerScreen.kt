@@ -71,12 +71,14 @@ import dev.jdtech.jellyfin.ui.components.player.VideoPlayerState
 import dev.jdtech.jellyfin.ui.components.player.chapterMarkerProgress
 import dev.jdtech.jellyfin.ui.components.player.rememberVideoPlayerState
 import dev.jdtech.jellyfin.ui.dialogs.VideoPlayerTrackSelectorDialog
+import dev.jdtech.jellyfin.ui.dialogs.SynchronizationDialog
 import dev.jdtech.jellyfin.ui.player.RemoteSeekController
 import dev.jdtech.jellyfin.ui.player.RemoteSeekDirection
 import dev.jdtech.jellyfin.ui.player.RemoteSeekPlayback
 import dev.jdtech.jellyfin.ui.player.chapterRemoteCommand
 import dev.jdtech.jellyfin.ui.player.remoteSeekDirectionOrNull
 import java.util.UUID
+import dev.jdtech.jellyfin.settings.domain.MpvSynchronizationKind
 import kotlinx.coroutines.delay
 
 @Composable
@@ -175,6 +177,7 @@ fun PlayerScreen(
     }
 
     var selectedTrackType by remember { mutableStateOf<Int?>(null) }
+    var synchronizationKind by remember { mutableStateOf<MpvSynchronizationKind?>(null) }
     var trackDialogReturnControl by remember { mutableStateOf<PlayerControl?>(null) }
     var dismissedSkipSegment by remember { mutableStateOf<FindroidSegment?>(null) }
     var skipButtonFocused by remember { mutableStateOf(false) }
@@ -238,7 +241,7 @@ fun PlayerScreen(
     val skipPromptMayTakeFocus =
         segment != null &&
             segment != dismissedSkipSegment &&
-            selectedTrackType == null &&
+            selectedTrackType == null && synchronizationKind == null &&
             videoPlayerState.mode != VideoPlayerOverlayMode.Controls
 
     LaunchedEffect(videoPlayerState.mode) {
@@ -270,7 +273,7 @@ fun PlayerScreen(
             val request =
                 playerFocusRequest(
                     overlayMode = videoPlayerState.mode,
-                    modalActive = selectedTrackType != null,
+                    modalActive = selectedTrackType != null || synchronizationKind != null,
                     skipPromptMayTakeFocus = skipPromptMayTakeFocus,
                     focusedControl = focusedControl,
                     availableControls = availableControls,
@@ -302,14 +305,23 @@ fun PlayerScreen(
         }
         trackDialogReturnControl = null
     }
+    val closeSynchronizationDialog = {
+        synchronizationKind = null
+        trackDialogReturnControl?.let { control ->
+            pendingControlFocus = control
+            videoPlayerState.showControls()
+        }
+        trackDialogReturnControl = null
+    }
 
     BackHandler(
         enabled =
-            selectedTrackType != null ||
+            selectedTrackType != null || synchronizationKind != null ||
                 videoPlayerState.mode != VideoPlayerOverlayMode.Hidden ||
                 skipButtonFocused
     ) {
         when {
+            synchronizationKind != null -> closeSynchronizationDialog()
             selectedTrackType != null -> closeTrackDialog()
             videoPlayerState.mode != VideoPlayerOverlayMode.Hidden -> {
                 videoPlayerState.hideControls()
@@ -332,7 +344,7 @@ fun PlayerScreen(
                     videoPlayerState = videoPlayerState,
                     remoteSeekController = remoteSeekController,
                     chapterNavigation = viewModel::chapterNavigationState,
-                    modalActive = selectedTrackType != null,
+                    modalActive = selectedTrackType != null || synchronizationKind != null,
                     skipPromptFocused = skipButtonFocused,
                     onChapterCommand = { direction ->
                         when (direction) {
@@ -487,8 +499,28 @@ fun PlayerScreen(
                 )
                 closeTrackDialog()
             },
+            onSynchronization = uiState.synchronization?.let {
+                {
+                    synchronizationKind =
+                        if (trackType == C.TRACK_TYPE_AUDIO) MpvSynchronizationKind.AUDIO
+                        else MpvSynchronizationKind.SUBTITLE
+                    selectedTrackType = null
+                }
+            },
             onDismiss = closeTrackDialog,
         )
+    }
+    synchronizationKind?.let { initialKind ->
+        uiState.synchronization?.let { synchronization ->
+            SynchronizationDialog(
+                synchronization = synchronization,
+                initialKind = initialKind,
+                onSet = { kind, value -> viewModel.setSynchronization(kind, value) },
+                onReset = { viewModel.resetSynchronization(it) },
+                onUseCurrentAsDefault = { viewModel.useCurrentSynchronizationAsDefault(it) },
+                onDismiss = closeSynchronizationDialog,
+            )
+        }
     }
 }
 

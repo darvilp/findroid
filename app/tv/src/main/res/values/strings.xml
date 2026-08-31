@@ -6,4 +6,17 @@
     <string name="preplay_subtitle_value">Subtitles: %1$s</string>
     <string name="preplay_tracks_for">Tracks for %1$s</string>
     <string name="preplay_loading">Loading tracks…</string>
+    <string name="synchronization">Synchronization</string>
+    <string name="synchronization_audio">Audio</string>
+    <string name="synchronization_subtitles">Subtitles</string>
+    <string name="synchronization_reset_audio">Reset audio to configured default</string>
+    <string name="synchronization_reset_subtitles">Reset subtitles to configured default</string>
+    <string name="synchronization_use_audio_default">Use current audio as default</string>
+    <string name="synchronization_use_subtitles_default">Use current subtitles as default</string>
+    <string name="synchronization_exact_entry">Exact entry</string>
+    <string name="synchronization_invalid_value">Enter seconds with up to three decimal places</string>
+    <string name="synchronization_earlier">Earlier</string>
+    <string name="synchronization_later">Later</string>
+    <string name="synchronization_done">Done</string>
+    <string name="synchronization_synchronized">Synchronized</string>
 </resources>

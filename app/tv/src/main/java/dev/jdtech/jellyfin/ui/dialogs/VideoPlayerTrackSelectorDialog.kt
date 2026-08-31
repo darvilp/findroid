@@ -47,6 +47,7 @@ fun VideoPlayerTrackSelectorDialog(
     trackType: @C.TrackType Int,
     tracks: List<Track>,
     onSelect: (Track?) -> Unit,
+    onSynchronization: (() -> Unit)? = null,
     onDismiss: () -> Unit,
 ) {
     val dialogTitle =
@@ -56,11 +57,16 @@ fun VideoPlayerTrackSelectorDialog(
             else -> CoreR.string.unknown_error
         }
     val selectedListIndex = (tracks.indexOfFirst { it.selected } + 1).coerceAtLeast(0)
-    val listState = rememberLazyListState(initialFirstVisibleItemIndex = selectedListIndex)
+    val synchronizationEntryCount =
+        if (trackDialogShowsSynchronization(trackType, onSynchronization != null)) 1 else 0
+    val listState =
+        rememberLazyListState(
+            initialFirstVisibleItemIndex = selectedListIndex + synchronizationEntryCount
+        )
     val selectedFocusRequester = remember { FocusRequester() }
 
     LaunchedEffect(selectedListIndex) {
-        listState.scrollToItem(selectedListIndex)
+        listState.scrollToItem(selectedListIndex + synchronizationEntryCount)
         selectedFocusRequester.requestFocus()
     }
 
@@ -87,6 +93,14 @@ fun VideoPlayerTrackSelectorDialog(
                     contentPadding =
                         PaddingValues(vertical = MaterialTheme.spacings.extraSmall),
                 ) {
+                    if (trackDialogShowsSynchronization(trackType, onSynchronization != null)) {
+                        item(key = "synchronization") {
+                            ActionOption(
+                                text = stringResource(id = dev.jdtech.jellyfin.R.string.synchronization),
+                                onClick = checkNotNull(onSynchronization),
+                            )
+                        }
+                    }
                     item(key = "none") {
                         TrackOption(
                             text = stringResource(id = PlayerLocalR.string.none),
@@ -126,6 +140,19 @@ fun VideoPlayerTrackSelectorDialog(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ActionOption(text: String, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(4.dp)),
+        colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color.Transparent),
+        border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(4.dp, Color.White), shape = RoundedCornerShape(10.dp))),
+        scale = ClickableSurfaceScale.None,
+    ) {
+        Text(text = text, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(MaterialTheme.spacings.medium))
     }
 }
 

@@ -3,6 +3,7 @@ package dev.jdtech.jellyfin.presentation.settings
 import android.app.Activity
 import android.app.UiModeManager
 import android.os.Build
+import android.widget.Toast
 import androidx.annotation.StringRes
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.layout.Arrangement
@@ -115,6 +116,13 @@ fun SettingsScreen(
                     (context as Activity).restart()
                 } catch (_: Exception) {}
             }
+            SettingsEvent.MpvSynchronizationConfigError ->
+                Toast.makeText(
+                        context,
+                        SettingsR.string.mpv_synchronization_config_error,
+                        Toast.LENGTH_LONG,
+                    )
+                    .show()
         }
     }
 
@@ -127,6 +135,9 @@ fun SettingsScreen(
                 is SettingsAction.OnUpdate -> {
                     viewModel.onAction(action)
                     viewModel.loadPreferences(indexes, DeviceType.PHONE)
+                }
+                is SettingsAction.OnUpdateMpvSynchronization -> {
+                    viewModel.onAction(action)
                 }
             }
         },

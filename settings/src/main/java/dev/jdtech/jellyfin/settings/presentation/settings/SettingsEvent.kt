@@ -18,4 +18,6 @@ sealed interface SettingsEvent {
     data class LaunchIntent(val intent: Intent) : SettingsEvent
 
     data object RestartActivity : SettingsEvent
+
+    data object MpvSynchronizationConfigError : SettingsEvent
 }
