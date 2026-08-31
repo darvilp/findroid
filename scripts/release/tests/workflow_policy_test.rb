@@ -16,7 +16,9 @@ class WorkflowPolicyTest < Minitest::Test
     assert_equal "read", workflow.fetch("permissions").fetch("contents")
     jobs = workflow.fetch("jobs")
     assert_equal "write", jobs.fetch("release").fetch("permissions").fetch("contents")
-    assert_includes jobs.fetch("release").fetch("if"), "refs/tags/"
+    release_if = jobs.fetch("release").fetch("if")
+    assert_includes release_if, "github.event_name == 'push'"
+    assert_includes release_if, "refs/tags/"
     build_steps = jobs.fetch("build").fetch("steps")
     assert build_steps.any? { |step| step["run"]&.include?("build-findroid-tv-release.sh") }
     assert build_steps.any? { |step| step["run"]&.include?("verify-findroid-tv-release.sh") }
@@ -26,6 +28,13 @@ class WorkflowPolicyTest < Minitest::Test
     assert_equal true, release.fetch("with").fetch("draft")
     assert_equal true, release.fetch("with").fetch("prerelease")
     assert release_steps.any? { |step| step["run"]&.include?("CERTIFICATE_SHA256_PLACEHOLDER") }
+    assert release_steps.any? { |step| step["run"]&.include?("FINDROID_TV_RELEASE_TAG") }
+    workflow.fetch("jobs").each_value do |job|
+      job.fetch("steps").each do |step|
+        next unless step["uses"]
+        assert_match(/@[0-9a-f]{40}\z/, step.fetch("uses"))
+      end
+    end
   end
 
   def test_upstream_publish_job_is_repository_guarded

@@ -6,6 +6,11 @@ fail() { echo "Findroid TV release verification failed: $*" >&2; exit 1; }
 artifact_dir=$1
 [[ -d "$artifact_dir" ]] || fail "artifact directory does not exist: $artifact_dir"
 artifact_dir=$(cd "$artifact_dir" && pwd)
+repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
+# The path is anchored to the discovered repository root.
+# shellcheck disable=SC1091
+source "$repo_root/scripts/release/findroid-tv-release.env"
+rm -f -- "$artifact_dir/SHA256SUMS"
 
 sdk_root=${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}
 [[ -n "$sdk_root" ]] || fail "ANDROID_HOME or ANDROID_SDK_ROOT is required"
@@ -18,7 +23,7 @@ for tool in aapt2 apksigner zipalign; do
 done
 command -v unzip >/dev/null 2>&1 || fail "unzip is required"
 
-prefix=findroid-tv-1.1.0-atv.1
+prefix="findroid-tv-$FINDROID_TV_VERSION_NAME"
 abis=(armeabi-v7a arm64-v8a x86 x86_64)
 artifacts=()
 for suffix in "${abis[@]}" universal; do
@@ -30,10 +35,19 @@ done
 common_fingerprint=
 for apk in "${artifacts[@]}"; do
     badging=$("$tool_dir/aapt2" dump badging "$apk")
-    [[ "$badging" == *"package: name='dev.jdtech.jellyfin.atv' versionCode='33001' versionName='1.1.0-atv.1'"* ]] ||
+    [[ "$badging" == *"package: name='$FINDROID_TV_APPLICATION_ID' versionCode='$FINDROID_TV_VERSION_CODE' versionName='$FINDROID_TV_VERSION_NAME'"* ]] ||
         fail "package or version mismatch in ${apk##*/}"
     signer=$("$tool_dir/apksigner" verify --verbose --print-certs "$apk") || fail "signature verification failed for ${apk##*/}"
-    fingerprint=$(printf '%s\n' "$signer" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -n 1)
+    if printf '%s\n' "$signer" | grep -Eq '^Signer #[2-9][0-9]*:? certificate SHA-256 digest:'; then
+        fail "exactly one signer is required for ${apk##*/}"
+    fi
+    mapfile -t signer_fingerprints < <(
+        printf '%s\n' "$signer" |
+            sed -n -E 's/^(Signer #[0-9]+|V[0-9]+ Signer):? certificate SHA-256 digest: //p' |
+            sort -u
+    )
+    ((${#signer_fingerprints[@]} == 1)) || fail "exactly one signer is required for ${apk##*/}"
+    fingerprint=${signer_fingerprints[0]}
     [[ -n "$fingerprint" ]] || fail "certificate fingerprint missing from ${apk##*/}"
     if [[ -z "$common_fingerprint" ]]; then common_fingerprint=$fingerprint
     elif [[ "$fingerprint" != "$common_fingerprint" ]]; then fail "certificate fingerprint mismatch in ${apk##*/}"
@@ -56,6 +70,10 @@ expected=$(printf '%s\n' "${abis[@]}" | sort)
     cd "$artifact_dir"
     names=()
     for apk in "${artifacts[@]}"; do names+=("${apk##*/}"); done
-    LC_ALL=C printf '%s\n' "${names[@]}" | sort | xargs sha256sum >SHA256SUMS
+    checksum_tmp=$(mktemp .SHA256SUMS.XXXXXX)
+    trap 'rm -f -- "$checksum_tmp"' EXIT
+    LC_ALL=C printf '%s\n' "${names[@]}" | sort | xargs sha256sum >"$checksum_tmp"
+    mv -- "$checksum_tmp" SHA256SUMS
+    trap - EXIT
 )
 echo "Findroid TV release verification passed; certificate SHA-256: $common_fingerprint"

@@ -21,7 +21,7 @@ set -eu
 output="$FAKE_APK_OUTPUT"
 mkdir -p "$output"
 case " $* " in
-  *" -PfindroidTvUniversalApk=true "*) printf universal >"$output/tv-libre-release.apk" ;;
+  *" -PfindroidTvUniversalApk=true "*) rm -f "$output"/tv-libre-*-release.apk; printf universal >"$output/tv-libre-release.apk" ;;
   *)
     for abi in armeabi-v7a arm64-v8a x86 x86_64; do
       printf '%s' "$abi" >"$output/tv-libre-$abi-release.apk"
@@ -31,6 +31,48 @@ esac
 EOF
     chmod +x "$FINDROID_TV_GRADLEW"
     export FAKE_APK_OUTPUT="$REPO_ROOT/app/tv/build/outputs/apk/libre/release"
+}
+
+@test "build rejects output beneath the Gradle-cleaned TV build directory" {
+    make_fake_gradle
+    run "$REPO_ROOT/scripts/release/build-findroid-tv-release.sh" "$REPO_ROOT/app/tv/build/release-output"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"must not be inside"* ]]
+    ln -s "$REPO_ROOT/app/tv/build" "$TEST_ROOT/build-link"
+    run "$REPO_ROOT/scripts/release/build-findroid-tv-release.sh" "$TEST_ROOT/build-link/release-output"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"must not be inside"* ]]
+}
+
+@test "failed rebuild preserves the complete prior managed set" {
+    make_fake_gradle
+    run "$REPO_ROOT/scripts/release/build-findroid-tv-release.sh" "$TEST_ROOT/out"
+    [ "$status" -eq 0 ]
+    cp "$TEST_ROOT/out/findroid-tv-1.1.0-atv.1-arm64-v8a.apk" "$TEST_ROOT/old"
+    sed -i '/case/i [[ " $* " == *" -PfindroidTvUniversalApk=true "* ]] \&\& exit 9' "$FINDROID_TV_GRADLEW"
+    run "$REPO_ROOT/scripts/release/build-findroid-tv-release.sh" "$TEST_ROOT/out"
+    [ "$status" -ne 0 ]
+    cmp "$TEST_ROOT/old" "$TEST_ROOT/out/findroid-tv-1.1.0-atv.1-arm64-v8a.apk"
+    [ "$(find "$TEST_ROOT/out" -maxdepth 1 -name '*.apk' | wc -l)" -eq 5 ]
+}
+
+@test "promotion failure rolls back every managed artifact" {
+    make_fake_gradle
+    run "$REPO_ROOT/scripts/release/build-findroid-tv-release.sh" "$TEST_ROOT/out"
+    [ "$status" -eq 0 ]
+    cp "$TEST_ROOT/out/findroid-tv-1.1.0-atv.1-arm64-v8a.apk" "$TEST_ROOT/old"
+    cat >"$TEST_ROOT/bin/mv" <<'EOF'
+#!/usr/bin/env bash
+for arg in "$@"; do
+    if [[ "$arg" == *'.findroid-tv-release.'*'/findroid-tv-'* && "$arg" != *'/backup/'* ]]; then exit 9; fi
+done
+exec /usr/bin/mv "$@"
+EOF
+    chmod +x "$TEST_ROOT/bin/mv"
+    run "$REPO_ROOT/scripts/release/build-findroid-tv-release.sh" "$TEST_ROOT/out"
+    [ "$status" -ne 0 ]
+    cmp "$TEST_ROOT/old" "$TEST_ROOT/out/findroid-tv-1.1.0-atv.1-arm64-v8a.apk"
+    [ "$(find "$TEST_ROOT/out" -maxdepth 1 -name '*.apk' | wc -l)" -eq 5 ]
 }
 
 make_fake_tools() {
@@ -110,6 +152,46 @@ EOF
     run "$REPO_ROOT/scripts/release/verify-findroid-tv-release.sh" "$TEST_ROOT/out"
     [ "$status" -ne 0 ]
     [[ "$output" == *"certificate fingerprint mismatch"* ]]
+}
+
+@test "verification rejects an APK with an additional signer" {
+    make_fake_tools
+    sed -i '/echo/a echo "Signer #2 certificate SHA-256 digest: 11:22"' "$ANDROID_HOME/build-tools/37.0.0/apksigner"
+    for abi in armeabi-v7a arm64-v8a x86 x86_64 universal; do touch "$TEST_ROOT/out/findroid-tv-1.1.0-atv.1-$abi.apk"; done
+    run "$REPO_ROOT/scripts/release/verify-findroid-tv-release.sh" "$TEST_ROOT/out"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"exactly one signer"* ]]
+}
+
+@test "verification propagates signature and alignment failures" {
+    make_fake_tools
+    for abi in armeabi-v7a arm64-v8a x86 x86_64 universal; do touch "$TEST_ROOT/out/findroid-tv-1.1.0-atv.1-$abi.apk"; done
+    sed -i '2i exit 7' "$ANDROID_HOME/build-tools/37.0.0/apksigner"
+    run "$REPO_ROOT/scripts/release/verify-findroid-tv-release.sh" "$TEST_ROOT/out"
+    [[ "$output" == *"signature verification failed"* ]]
+    make_fake_tools
+    sed -i '2i exit 8' "$ANDROID_HOME/build-tools/37.0.0/zipalign"
+    run "$REPO_ROOT/scripts/release/verify-findroid-tv-release.sh" "$TEST_ROOT/out"
+    [[ "$output" == *"alignment check failed"* ]]
+}
+
+@test "verification separately rejects wrong version name and code" {
+    for abi in armeabi-v7a arm64-v8a x86 x86_64 universal; do touch "$TEST_ROOT/out/findroid-tv-1.1.0-atv.1-$abi.apk"; done
+    make_fake_tools dev.jdtech.jellyfin.atv wrong 33001
+    run "$REPO_ROOT/scripts/release/verify-findroid-tv-release.sh" "$TEST_ROOT/out"
+    [[ "$output" == *"package or version mismatch"* ]]
+    make_fake_tools dev.jdtech.jellyfin.atv 1.1.0-atv.1 99
+    run "$REPO_ROOT/scripts/release/verify-findroid-tv-release.sh" "$TEST_ROOT/out"
+    [[ "$output" == *"package or version mismatch"* ]]
+}
+
+@test "failed verification removes a stale checksum manifest" {
+    make_fake_tools wrong.package
+    for abi in armeabi-v7a arm64-v8a x86 x86_64 universal; do touch "$TEST_ROOT/out/findroid-tv-1.1.0-atv.1-$abi.apk"; done
+    echo stale >"$TEST_ROOT/out/SHA256SUMS"
+    run "$REPO_ROOT/scripts/release/verify-findroid-tv-release.sh" "$TEST_ROOT/out"
+    [ "$status" -ne 0 ]
+    [ ! -e "$TEST_ROOT/out/SHA256SUMS" ]
 }
 
 @test "verification writes stable artifact-only checksums" {
