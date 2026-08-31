@@ -164,6 +164,14 @@ class SynchronizationEditorPolicyTest {
                 increase = true,
             )
         )
+
+        assertEquals(
+            Long.MAX_VALUE,
+            SynchronizationEditorState.from(Long.MAX_VALUE)
+                .copy(selectedField = SynchronizationField.ONE_MILLISECOND)
+                .increment()
+                .valueMs,
+        )
     }
 
     @Test

@@ -3,6 +3,16 @@ package dev.jdtech.jellyfin.settings.domain
 import java.math.BigDecimal
 import java.math.BigInteger
 
+private val LONG_MIN_BIG_INTEGER = BigInteger.valueOf(Long.MIN_VALUE)
+private val LONG_MAX_BIG_INTEGER = BigInteger.valueOf(Long.MAX_VALUE)
+
+fun BigInteger.toLongExact(): Long {
+    if (this < LONG_MIN_BIG_INTEGER || this > LONG_MAX_BIG_INTEGER) {
+        throw ArithmeticException("BigInteger out of Long range")
+    }
+    return toLong()
+}
+
 enum class MpvSynchronizationKind {
     AUDIO,
     SUBTITLE,
@@ -50,7 +60,7 @@ object MpvSynchronizationValue {
         return runCatching {
                 (if (negative && milliseconds != BigInteger.ZERO) milliseconds.negate()
                     else milliseconds)
-                    .longValueExact()
+                    .toLongExact()
             }
             .getOrNull()
     }
@@ -81,11 +91,11 @@ class MpvSynchronizationState(audioBaselineMs: Long = 0L, subtitleBaselineMs: Lo
     internal fun temporary(kind: MpvSynchronizationKind): BigInteger = temporary.getValue(kind)
 
     fun effective(kind: MpvSynchronizationKind): Long =
-        BigInteger.valueOf(baseline(kind)).add(temporary(kind)).longValueExact()
+        BigInteger.valueOf(baseline(kind)).add(temporary(kind)).toLongExact()
 
     fun setTemporary(kind: MpvSynchronizationKind, valueMs: Long) {
         val delta = BigInteger.valueOf(valueMs)
-        BigInteger.valueOf(baseline(kind)).add(delta).longValueExact()
+        BigInteger.valueOf(baseline(kind)).add(delta).toLongExact()
         temporary[kind] = delta
     }
 

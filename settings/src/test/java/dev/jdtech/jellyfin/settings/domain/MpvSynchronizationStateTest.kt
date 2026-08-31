@@ -2,6 +2,7 @@ package dev.jdtech.jellyfin.settings.domain
 
 import java.math.BigInteger
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class MpvSynchronizationStateTest {
@@ -83,5 +84,20 @@ class MpvSynchronizationStateTest {
             BigInteger("-18446744073709551615"),
             state.temporary(MpvSynchronizationKind.SUBTITLE),
         )
+    }
+
+    @Test
+    fun `effective baseline plus temporary rejects overflow past either endpoint`() {
+        val upper = MpvSynchronizationState(audioBaselineMs = Long.MAX_VALUE)
+        val lower = MpvSynchronizationState(audioBaselineMs = Long.MIN_VALUE)
+
+        assertThrows(ArithmeticException::class.java) {
+            upper.setTemporary(MpvSynchronizationKind.AUDIO, 1L)
+        }
+        assertThrows(ArithmeticException::class.java) {
+            lower.setTemporary(MpvSynchronizationKind.AUDIO, -1L)
+        }
+        assertEquals(Long.MAX_VALUE, upper.effective(MpvSynchronizationKind.AUDIO))
+        assertEquals(Long.MIN_VALUE, lower.effective(MpvSynchronizationKind.AUDIO))
     }
 }

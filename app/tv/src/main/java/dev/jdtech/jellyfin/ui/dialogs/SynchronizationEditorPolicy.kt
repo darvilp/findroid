@@ -3,6 +3,7 @@ package dev.jdtech.jellyfin.ui.dialogs
 import android.view.KeyEvent
 import dev.jdtech.jellyfin.settings.domain.MpvSynchronizationKind
 import dev.jdtech.jellyfin.settings.domain.MpvSynchronizationValue
+import dev.jdtech.jellyfin.settings.domain.toLongExact
 import java.math.BigInteger
 
 internal enum class SynchronizationField(val placeMs: Long?) {
@@ -28,7 +29,7 @@ internal data class SynchronizationEditorState(
             (magnitude + BigInteger.valueOf(if (increase) place else -place))
                 .coerceAtLeast(BigInteger.ZERO)
         val signed = if (valueMs < 0L) edited.negate() else edited
-        return copy(valueMs = runCatching { signed.longValueExact() }.getOrElse { valueMs })
+        return copy(valueMs = runCatching { signed.toLongExact() }.getOrElse { valueMs })
     }
 
     fun increment(): SynchronizationEditorState = edit(true)

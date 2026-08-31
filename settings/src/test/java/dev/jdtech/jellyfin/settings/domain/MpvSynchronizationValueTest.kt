@@ -1,11 +1,29 @@
 package dev.jdtech.jellyfin.settings.domain
 
+import java.math.BigInteger
 import java.util.Locale
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class MpvSynchronizationValueTest {
+    @Test
+    fun `exact big integer conversion accepts both long endpoints`() {
+        assertEquals(Long.MIN_VALUE, BigInteger("-9223372036854775808").toLongExact())
+        assertEquals(Long.MAX_VALUE, BigInteger("9223372036854775807").toLongExact())
+    }
+
+    @Test
+    fun `exact big integer conversion rejects values outside both long endpoints`() {
+        assertThrows(ArithmeticException::class.java) {
+            BigInteger("-9223372036854775809").toLongExact()
+        }
+        assertThrows(ArithmeticException::class.java) {
+            BigInteger("9223372036854775808").toLongExact()
+        }
+    }
+
     @Test
     fun `formats signed milliseconds as exact mpv seconds`() {
         assertEquals("0.000", MpvSynchronizationValue.formatMpvSeconds(0L))
@@ -51,6 +69,24 @@ class MpvSynchronizationValueTest {
         assertNull(MpvSynchronizationValue.parseSignedMpvSeconds("seconds"))
         assertNull(MpvSynchronizationValue.parseSignedMpvSeconds("9223372036854775.808"))
         assertEquals(125L, MpvSynchronizationValue.parseSignedMpvSeconds("0.125000"))
+    }
+
+    @Test
+    fun `directed exact entry accepts endpoints and rejects values beyond them`() {
+        assertEquals(
+            Long.MIN_VALUE,
+            MpvSynchronizationValue.parseDirectedMagnitudeSeconds("9223372036854775.808", negative = true),
+        )
+        assertEquals(
+            Long.MAX_VALUE,
+            MpvSynchronizationValue.parseDirectedMagnitudeSeconds("9223372036854775.807", negative = false),
+        )
+        assertNull(
+            MpvSynchronizationValue.parseDirectedMagnitudeSeconds("9223372036854775.809", negative = true),
+        )
+        assertNull(
+            MpvSynchronizationValue.parseDirectedMagnitudeSeconds("9223372036854775.808", negative = false),
+        )
     }
 
     @Test
