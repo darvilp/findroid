@@ -94,5 +94,7 @@ assert_contains "$release_resources" '>Findroid TV</string>' "release label is w
 
 assert_release_signing_required :app:tv:assembleLibreRelease
 assert_release_signing_required :app:tv:bundleLibreRelease
+assert_release_signing_required :app:tv:packageLibreReleaseBundle
+assert_release_signing_required :app:tv:packageLibreReleaseUniversalApk
 
 echo "FINDROID_TV_RELEASE_POLICY_CHECK_PASS"

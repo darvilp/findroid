@@ -33,5 +33,6 @@ fun findroidTvAbiSplitsEnabled(taskNames: List<String>, universalApk: Boolean): 
 }
 
 fun findroidTvReleaseArtifactRequested(taskName: String): Boolean =
-    taskName.matches(Regex("(?:assemble|bundle|package).+Release")) ||
-        taskName.matches(Regex("sign.+Release(?:Bundle)?"))
+    taskName.matches(Regex("(?:assemble|bundle).*Release")) ||
+        taskName.matches(Regex("package.*Release(?:Bundle|UniversalApk)?")) ||
+        taskName.matches(Regex("sign.*Release(?:Bundle)?"))

@@ -38,12 +38,23 @@ class FindroidTvReleasePolicyTest {
     }
 
     @Test
-    fun `release signing preflight ignores lint dependencies and accepts artifact tasks`() {
-        assertFalse(findroidTvReleaseArtifactRequested("packageLibreReleaseResources"))
-        assertFalse(findroidTvReleaseArtifactRequested("lintLibreRelease"))
+    fun `release signing preflight protects callable release artifact tasks`() {
+        assertTrue(findroidTvReleaseArtifactRequested("assembleRelease"))
+        assertTrue(findroidTvReleaseArtifactRequested("bundleRelease"))
         assertTrue(findroidTvReleaseArtifactRequested("assembleLibreRelease"))
         assertTrue(findroidTvReleaseArtifactRequested("bundleLibreRelease"))
         assertTrue(findroidTvReleaseArtifactRequested("packageLibreRelease"))
+        assertTrue(findroidTvReleaseArtifactRequested("packageLibreReleaseBundle"))
+        assertTrue(findroidTvReleaseArtifactRequested("packageLibreReleaseUniversalApk"))
         assertTrue(findroidTvReleaseArtifactRequested("signLibreReleaseBundle"))
+    }
+
+    @Test
+    fun `release signing preflight ignores resource metadata and debug tasks`() {
+        assertFalse(findroidTvReleaseArtifactRequested("packageLibreReleaseResources"))
+        assertFalse(findroidTvReleaseArtifactRequested("lintLibreRelease"))
+        assertFalse(findroidTvReleaseArtifactRequested("processApplicationManifestLibreReleaseForBundle"))
+        assertFalse(findroidTvReleaseArtifactRequested("assembleLibreDebug"))
+        assertFalse(findroidTvReleaseArtifactRequested("packageLibreDebugUniversalApk"))
     }
 }
