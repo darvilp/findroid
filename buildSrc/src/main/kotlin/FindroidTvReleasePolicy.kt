@@ -31,3 +31,7 @@ fun findroidTvAbiSplitsEnabled(taskNames: List<String>, universalApk: Boolean): 
     val isBuildingBundle = taskNames.any { it.lowercase().contains("bundle") }
     return !isBuildingBundle && !universalApk
 }
+
+fun findroidTvReleaseArtifactRequested(taskName: String): Boolean =
+    taskName.matches(Regex("(?:assemble|bundle|package).+Release")) ||
+        taskName.matches(Regex("sign.+Release(?:Bundle)?"))

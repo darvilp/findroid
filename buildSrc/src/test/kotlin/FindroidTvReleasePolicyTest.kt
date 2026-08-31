@@ -36,4 +36,14 @@ class FindroidTvReleasePolicyTest {
         assertFalse(findroidTvAbiSplitsEnabled(listOf(":app:tv:bundleLibreRelease"), universalApk = false))
         assertFalse(findroidTvAbiSplitsEnabled(listOf(":app:tv:bundleLibreRelease"), universalApk = true))
     }
+
+    @Test
+    fun `release signing preflight ignores lint dependencies and accepts artifact tasks`() {
+        assertFalse(findroidTvReleaseArtifactRequested("packageLibreReleaseResources"))
+        assertFalse(findroidTvReleaseArtifactRequested("lintLibreRelease"))
+        assertTrue(findroidTvReleaseArtifactRequested("assembleLibreRelease"))
+        assertTrue(findroidTvReleaseArtifactRequested("bundleLibreRelease"))
+        assertTrue(findroidTvReleaseArtifactRequested("packageLibreRelease"))
+        assertTrue(findroidTvReleaseArtifactRequested("signLibreReleaseBundle"))
+    }
 }

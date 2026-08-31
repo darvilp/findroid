@@ -129,8 +129,7 @@ gradle.taskGraph.whenReady {
     val releaseArtifactRequested =
         allTasks.any { task ->
             task.project == project &&
-                task.name.contains("Release") &&
-                listOf("assemble", "bundle", "package", "sign").any(task.name::startsWith)
+                findroidTvReleaseArtifactRequested(task.name)
         }
     if (releaseArtifactRequested && findroidTvMissingSigningInputs.isNotEmpty()) {
         error(
