@@ -231,7 +231,7 @@ EOF
     make_fake_tools
     sed -i 's/Signer #1 certificate SHA-256 digest: AA:BB/V2 Signer: certificate SHA-256 digest: AA:BB/' "$ANDROID_HOME/build-tools/37.0.0/apksigner"
     for abi in armeabi-v7a arm64-v8a x86 x86_64 universal; do touch "$TEST_ROOT/out/findroid-tv-1.1.0-atv.1-$abi.apk"; done
-    run "$REPO_ROOT/scripts/release/verify-findroid-tv-release.sh" "$TEST_ROOT/out"
+    run "$REPO_ROOT/scripts/release/verify-findroid-tv-release.sh" --write-manifests "$TEST_ROOT/out"
     [ "$status" -eq 0 ]
     [[ "$output" == *"certificate SHA-256: AA:BB"* ]]
 }
@@ -286,21 +286,21 @@ EOF
     [[ "$output" == *"package or version mismatch"* ]]
 }
 
-@test "failed verification removes a stale checksum manifest" {
+@test "failed verification preserves supplied manifests" {
     make_fake_tools wrong.package
     for abi in armeabi-v7a arm64-v8a x86 x86_64 universal; do touch "$TEST_ROOT/out/findroid-tv-1.1.0-atv.1-$abi.apk"; done
     echo stale >"$TEST_ROOT/out/SHA256SUMS"
     echo stale >"$TEST_ROOT/out/CERTIFICATE_SHA256"
     run "$REPO_ROOT/scripts/release/verify-findroid-tv-release.sh" "$TEST_ROOT/out"
     [ "$status" -ne 0 ]
-    [ ! -e "$TEST_ROOT/out/SHA256SUMS" ]
-    [ ! -e "$TEST_ROOT/out/CERTIFICATE_SHA256" ]
+    [ "$(cat "$TEST_ROOT/out/SHA256SUMS")" = stale ]
+    [ "$(cat "$TEST_ROOT/out/CERTIFICATE_SHA256")" = stale ]
 }
 
 @test "verification writes stable artifact-only checksums" {
     make_fake_tools
     for abi in armeabi-v7a arm64-v8a x86 x86_64 universal; do printf '%s' "$abi" >"$TEST_ROOT/out/findroid-tv-1.1.0-atv.1-$abi.apk"; done
-    run "$REPO_ROOT/scripts/release/verify-findroid-tv-release.sh" "$TEST_ROOT/out"
+    run "$REPO_ROOT/scripts/release/verify-findroid-tv-release.sh" --write-manifests "$TEST_ROOT/out"
     [ "$status" -eq 0 ]
     first=$(cat "$TEST_ROOT/out/SHA256SUMS")
     run "$REPO_ROOT/scripts/release/verify-findroid-tv-release.sh" "$TEST_ROOT/out"
@@ -309,6 +309,66 @@ EOF
     [[ "$first" != *"$TEST_ROOT"* ]]
     [ "$(wc -l <"$TEST_ROOT/out/SHA256SUMS")" -eq 5 ]
     [ "$(cat "$TEST_ROOT/out/CERTIFICATE_SHA256")" = "AA:BB" ]
+}
+
+seed_downloaded_assets() {
+    make_fake_tools
+    for abi in armeabi-v7a arm64-v8a x86 x86_64 universal; do
+        printf '%s' "$abi" >"$TEST_ROOT/out/findroid-tv-1.1.0-atv.1-$abi.apk"
+    done
+    (cd "$TEST_ROOT/out" && LC_ALL=C sha256sum findroid-tv-*.apk >SHA256SUMS)
+    printf 'AA:BB\n' >"$TEST_ROOT/out/CERTIFICATE_SHA256"
+}
+
+@test "download verification rejects changed APK bytes and preserves the original manifest" {
+    seed_downloaded_assets
+    cp "$TEST_ROOT/out/SHA256SUMS" "$TEST_ROOT/original-checksums"
+    printf changed >>"$TEST_ROOT/out/findroid-tv-1.1.0-atv.1-x86.apk"
+    run "$REPO_ROOT/scripts/release/verify-findroid-tv-release.sh" "$TEST_ROOT/out"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"checksum manifest mismatch"* ]]
+    cmp "$TEST_ROOT/original-checksums" "$TEST_ROOT/out/SHA256SUMS"
+}
+
+@test "download verification rejects missing or incomplete checksums instead of generating replacements" {
+    seed_downloaded_assets
+    rm "$TEST_ROOT/out/SHA256SUMS"
+    run "$REPO_ROOT/scripts/release/verify-findroid-tv-release.sh" "$TEST_ROOT/out"
+    [ "$status" -ne 0 ]
+    [ ! -e "$TEST_ROOT/out/SHA256SUMS" ]
+
+    seed_downloaded_assets
+    sed -i '/-x86.apk/d' "$TEST_ROOT/out/SHA256SUMS"
+    cp "$TEST_ROOT/out/SHA256SUMS" "$TEST_ROOT/original-checksums"
+    run "$REPO_ROOT/scripts/release/verify-findroid-tv-release.sh" "$TEST_ROOT/out"
+    [ "$status" -ne 0 ]
+    cmp "$TEST_ROOT/original-checksums" "$TEST_ROOT/out/SHA256SUMS"
+}
+
+@test "download verification rejects a supplied certificate that differs from the APK signer" {
+    seed_downloaded_assets
+    printf 'CC:DD\n' >"$TEST_ROOT/out/CERTIFICATE_SHA256"
+    run "$REPO_ROOT/scripts/release/verify-findroid-tv-release.sh" "$TEST_ROOT/out"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"certificate manifest mismatch"* ]]
+    [ "$(cat "$TEST_ROOT/out/CERTIFICATE_SHA256")" = CC:DD ]
+}
+
+@test "download verification leaves valid workflow and draft assets unchanged" {
+    seed_downloaded_assets
+    cp "$TEST_ROOT/out/SHA256SUMS" "$TEST_ROOT/original-checksums"
+    cp "$TEST_ROOT/out/CERTIFICATE_SHA256" "$TEST_ROOT/original-certificate"
+    run "$REPO_ROOT/scripts/release/verify-findroid-tv-release.sh" "$TEST_ROOT/out"
+    [ "$status" -eq 0 ]
+    cmp "$TEST_ROOT/original-checksums" "$TEST_ROOT/out/SHA256SUMS"
+    cmp "$TEST_ROOT/original-certificate" "$TEST_ROOT/out/CERTIFICATE_SHA256"
+
+    # Draft releases attach APKs and SHA256SUMS, with the signer in the release notes.
+    rm "$TEST_ROOT/out/CERTIFICATE_SHA256"
+    run "$REPO_ROOT/scripts/release/verify-findroid-tv-release.sh" "$TEST_ROOT/out"
+    [ "$status" -eq 0 ]
+    [ ! -e "$TEST_ROOT/out/CERTIFICATE_SHA256" ]
+    cmp "$TEST_ROOT/original-checksums" "$TEST_ROOT/out/SHA256SUMS"
 }
 
 @test "release notes certificate must exactly match the verified artifact signer" {

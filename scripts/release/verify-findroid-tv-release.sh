@@ -2,7 +2,12 @@
 set -euo pipefail
 
 fail() { echo "Findroid TV release verification failed: $*" >&2; exit 1; }
-[[ $# -eq 1 ]] || fail "usage: $0 ARTIFACT_DIRECTORY"
+write_manifests=false
+if [[ ${1:-} == --write-manifests ]]; then
+    write_manifests=true
+    shift
+fi
+[[ $# -eq 1 ]] || fail "usage: $0 [--write-manifests] ARTIFACT_DIRECTORY"
 artifact_dir=$1
 [[ -d "$artifact_dir" ]] || fail "artifact directory does not exist: $artifact_dir"
 artifact_dir=$(cd "$artifact_dir" && pwd)
@@ -10,7 +15,6 @@ repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 # The path is anchored to the discovered repository root.
 # shellcheck disable=SC1091
 source "$repo_root/scripts/release/findroid-tv-release.env"
-rm -f -- "$artifact_dir/SHA256SUMS" "$artifact_dir/CERTIFICATE_SHA256"
 
 sdk_root=${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}
 [[ -n "$sdk_root" ]] || fail "ANDROID_HOME or ANDROID_SDK_ROOT is required"
@@ -69,17 +73,33 @@ actual=$(apk_abis "$artifact_dir/$prefix-universal.apk")
 expected=$(printf '%s\n' "${abis[@]}" | sort)
 [[ "$actual" == "$expected" ]] || fail "ABI set mismatch in $prefix-universal.apk: ${actual:-none}"
 
-(
+checksums=$(
     cd "$artifact_dir"
     names=()
     for apk in "${artifacts[@]}"; do names+=("${apk##*/}"); done
-    checksum_tmp=$(mktemp .SHA256SUMS.XXXXXX)
-    fingerprint_tmp=$(mktemp .CERTIFICATE_SHA256.XXXXXX)
-    trap 'rm -f -- "$checksum_tmp" "$fingerprint_tmp"' EXIT
-    LC_ALL=C printf '%s\n' "${names[@]}" | sort | xargs sha256sum >"$checksum_tmp"
-    printf '%s\n' "$common_fingerprint" >"$fingerprint_tmp"
-    mv -- "$checksum_tmp" SHA256SUMS
-    mv -- "$fingerprint_tmp" CERTIFICATE_SHA256
-    trap - EXIT
+    LC_ALL=C printf '%s\n' "${names[@]}" | sort | xargs sha256sum
 )
+
+if [[ "$write_manifests" == true ]]; then
+    (
+        cd "$artifact_dir"
+        checksum_tmp=$(mktemp .SHA256SUMS.XXXXXX)
+        fingerprint_tmp=$(mktemp .CERTIFICATE_SHA256.XXXXXX)
+        trap 'rm -f -- "$checksum_tmp" "$fingerprint_tmp"' EXIT
+        printf '%s\n' "$checksums" >"$checksum_tmp"
+        printf '%s\n' "$common_fingerprint" >"$fingerprint_tmp"
+        mv -- "$checksum_tmp" SHA256SUMS
+        mv -- "$fingerprint_tmp" CERTIFICATE_SHA256
+        trap - EXIT
+    )
+else
+    # Verification of downloaded artifacts must never replace the supplied evidence.
+    [[ -f "$artifact_dir/SHA256SUMS" ]] || fail "checksum manifest is missing"
+    [[ "$(<"$artifact_dir/SHA256SUMS")" == "$checksums" ]] || fail "checksum manifest mismatch"
+    # Draft release assets omit this file; their certificate is recorded in release notes.
+    if [[ -e "$artifact_dir/CERTIFICATE_SHA256" ]]; then
+        [[ "$(<"$artifact_dir/CERTIFICATE_SHA256")" == "$common_fingerprint" ]] ||
+            fail "certificate manifest mismatch"
+    fi
+fi
 echo "Findroid TV release verification passed; certificate SHA-256: $common_fingerprint"

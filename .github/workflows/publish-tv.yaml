@@ -45,9 +45,10 @@ jobs:
           FINDROID_TV_KEY_PASSWORD: ${{ secrets.FINDROID_TV_KEY_PASSWORD }}
         run: |
           scripts/release/build-findroid-tv-release.sh "$RUNNER_TEMP/findroid-tv-assets"
-          scripts/release/verify-findroid-tv-release.sh "$RUNNER_TEMP/findroid-tv-assets"
+          scripts/release/verify-findroid-tv-release.sh --write-manifests "$RUNNER_TEMP/findroid-tv-assets"
 
-      - name: Upload private workflow artifact
+      # On this public repository, signed-in readers can download these test artifacts.
+      - name: Upload unpublished test artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: findroid-tv-release-assets
