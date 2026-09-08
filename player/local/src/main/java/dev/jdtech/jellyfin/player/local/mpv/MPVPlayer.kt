@@ -296,6 +296,7 @@ class MPVPlayer(
 
     // Internal state.
     private var internalMediaItems = mutableListOf<MediaItem>()
+    private var isNativePlaylistPrepared = false
 
     @Player.State private var playbackState: Int = STATE_IDLE
     private var currentPlayWhenReady: Boolean = false
@@ -402,10 +403,13 @@ class MPVPlayer(
                     }
                 }
                 "playlist-current-pos" -> {
-                    if (value < 0) {
+                    if (!isNativePlaylistPrepared) return@post
+                    // Native playlist edits can enqueue intermediate indices. By the time this
+                    // callback runs, our timeline already contains the completed edit.
+                    val observedIndex = mpvLib.getPropertyInt("playlist-current-pos") ?: return@post
+                    if (observedIndex !in internalMediaItems.indices) {
                         return@post
                     }
-                    val observedIndex = value.toInt()
                     pendingPlaylistInsertion?.let { insertion ->
                         if (!insertion.acceptsPlaylistCurrentPosition(observedIndex)) {
                             return@post
@@ -725,6 +729,7 @@ class MPVPlayer(
         mpvLib.command(arrayOf("playlist-clear"))
         mpvLib.command(arrayOf("playlist-remove", "current"))
         internalMediaItems = mediaItems
+        isNativePlaylistPrepared = false
     }
 
     /**
@@ -748,6 +753,7 @@ class MPVPlayer(
         mpvLib.command(arrayOf("playlist-clear"))
         mpvLib.command(arrayOf("playlist-remove", "current"))
         internalMediaItems = mediaItems
+        isNativePlaylistPrepared = false
         initialIndex = startWindowIndex
         initialSeekTo = startPositionMs
     }
@@ -802,7 +808,49 @@ class MPVPlayer(
         toIndex: Int,
         mediaItems: MutableList<MediaItem>,
     ) {
-        TODO("Not yet implemented")
+        val replacements = mediaItems.toList()
+        val plan =
+            planMpvPlaylistReplacementOrNull(
+                sources = internalMediaItems.map { "${it.localConfiguration?.uri}" },
+                fromIndex = fromIndex,
+                toIndex = toIndex,
+                replacements = replacements.map { "${it.localConfiguration?.uri}" },
+                currentIndex =
+                    if (isNativePlaylistPrepared || initialIndex == C.INDEX_UNSET) {
+                        currentMediaItemIndex
+                    } else {
+                        initialIndex
+                    },
+            ) ?: return
+        if (fromIndex == plan.toIndex && replacements.isEmpty()) return
+
+        internalMediaItems.subList(fromIndex, plan.toIndex).clear()
+        internalMediaItems.addAll(fromIndex, replacements)
+        pendingPlaylistInsertion = null
+        if (isNativePlaylistPrepared) {
+            currentMediaItemIndex = plan.currentIndex
+            val retainedPlayWhenReady = playWhenReady
+            plan.commands.forEach { mpvLib.command(it.toTypedArray()) }
+            if (plan.replacesCurrentItem) {
+                if (fromIndex < internalMediaItems.size) {
+                    initialSeekTo = 0L
+                    prepareMediaItem(currentMediaItemIndex, retainedPlayWhenReady)
+                } else {
+                    resetInternalState()
+                    setPlayerStateAndNotifyIfChanged(
+                        playbackState = STATE_ENDED,
+                        playWhenReady = retainedPlayWhenReady,
+                    )
+                }
+            }
+        } else {
+            // Keep the pending start separate from the native index until prepare() starts it.
+            initialIndex = plan.currentIndex
+            if (plan.replacesCurrentItem) initialSeekTo = 0L
+        }
+        listeners.sendEvent(EVENT_TIMELINE_CHANGED) { listener ->
+            listener.onTimelineChanged(timeline, TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED)
+        }
     }
 
     /**
@@ -876,6 +924,7 @@ class MPVPlayer(
 
     /** Prepares the player. */
     override fun prepare() {
+        isNativePlaylistPrepared = true
         internalMediaItems.forEachIndexed { index, mediaItem ->
             mpvLib.command(
                 arrayOf(
@@ -1055,9 +1104,13 @@ class MPVPlayer(
         }
     }
 
-    private fun prepareMediaItem(index: Int) {
+    private fun prepareMediaItem(
+        index: Int,
+        playWhenReady: Boolean = false,
+    ) {
         internalMediaItems.getOrNull(index)?.let { mediaItem ->
             resetInternalState()
+            currentPlayWhenReady = playWhenReady
             mediaItem.localConfiguration?.subtitleConfigurations?.forEach { subtitle ->
                 initialCommands.add(
                     arrayOf(
@@ -1069,12 +1122,7 @@ class MPVPlayer(
                     )
                 )
             }
-            // Only set the playlist index when the index is not the currently playing item.
-            // Otherwise
-            // playback will be restarted.
-            // This is a problem on initial load when the first item is still loading causing
-            // duplicate
-            // external subtitle entries.
+            // Avoid restarting the active entry and adding its external subtitles twice.
             if (currentMediaItemIndex != index) {
                 mpvLib.command(arrayOf("playlist-play-index", "$index"))
             }
@@ -1135,6 +1183,7 @@ class MPVPlayer(
      * player must not be used after calling this method.
      */
     override fun release() {
+        isNativePlaylistPrepared = false
         fileLoadedListeners.clear()
         if (handleAudioFocus) {
             AudioManagerCompat.abandonAudioFocusRequest(audioManager, audioFocusRequest)
