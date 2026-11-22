@@ -47,10 +47,12 @@ internal class PlaylistNavigationController {
     fun navigate(
         direction: PlaylistNavigationDirection,
         target: PlaylistNavigationTarget,
+        beforeSeek: () -> Unit = {},
     ): Boolean {
         if (!state(target).isAvailable(direction)) return false
 
         val playWhenReady = target.playWhenReady()
+        beforeSeek()
         when (direction) {
             PlaylistNavigationDirection.Previous -> target.seekToPreviousMediaItem()
             PlaylistNavigationDirection.Next -> target.seekToNextMediaItem()
