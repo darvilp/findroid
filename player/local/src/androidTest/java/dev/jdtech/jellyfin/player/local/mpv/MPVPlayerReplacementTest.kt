@@ -6,6 +6,7 @@ import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionOverride
 import androidx.test.platform.app.InstrumentationRegistry
@@ -213,6 +214,38 @@ class MPVPlayerReplacementTest {
             assertEquals(nativeId, nativePlayer.getPropertyString("sid"))
             assertEquals(42, player.externalSubtitleStreamIndices[nativeId])
         }
+    }
+
+    @Test
+    fun missingFileNotifiesErrorAndAValidRetryReachesReady() {
+        var reportedError: PlaybackException? = null
+        onMain {
+            player.addListener(
+                object : Player.Listener {
+                    override fun onPlayerError(error: PlaybackException) {
+                        reportedError = error
+                    }
+                },
+            )
+            val item =
+                MediaItem.Builder()
+                    .setMediaId("missing")
+                    .setUri(Uri.fromFile(File(fixtureDirectory, "absent.mkv")))
+                    .build()
+            player.setMediaItems(mutableListOf(item), 0, 0L)
+            player.prepare()
+            player.play()
+        }
+        awaitCondition("MPV failure") { reportedError != null }
+        onMain {
+            assertEquals(Player.STATE_IDLE, player.playbackState)
+            assertEquals(reportedError, player.playerError)
+            player.setMediaItems(mutableListOf(media[0]), 0, 0L)
+            player.prepare()
+            player.play()
+        }
+        awaitReady("item-0")
+        onMain { assertEquals(null, player.playerError) }
     }
 
     private fun awaitCondition(label: String, predicate: () -> Boolean) {

@@ -68,6 +68,7 @@ class MPVPlayer(
     private var audioFocusCallback: () -> Unit = {}
     private lateinit var audioFocusRequest: AudioFocusRequestCompat
     private val handler: Handler = Handler(context.mainLooper)
+    private val fileAttempt = MpvPlaybackAttempt()
 
     private constructor(
         builder: Builder,
@@ -312,6 +313,7 @@ class MPVPlayer(
 
     @Player.RepeatMode private val repeatMode: Int = REPEAT_MODE_OFF
     private var currentTracks: Tracks = Tracks.EMPTY
+    private var playbackError: PlaybackException? = null
     private var trackFileLoaded = false
     internal var externalSubtitleStreamIndices: Map<String, Int?> = emptyMap()
         private set
@@ -342,7 +344,7 @@ class MPVPlayer(
     }
 
     private fun publishTracks() {
-        if (!isNativePlaylistPrepared || !trackFileLoaded) return
+        if (!isNativePlaylistPrepared || !trackFileLoaded || playbackError != null) return
         if (mpvLib.getPropertyInt("playlist-current-pos") != currentMediaItemIndex) return
         val trackList = mpvLib.getPropertyString("track-list") ?: return
         val subtitles =
@@ -358,7 +360,9 @@ class MPVPlayer(
     }
 
     override fun eventProperty(property: String, value: Boolean) {
+        val generation = fileAttempt.nativeGeneration
         handler.post {
+            if (!isNativePlaylistPrepared || !fileAttempt.accepts(generation)) return@post
             when (property) {
                 "eof-reached" -> {
                     if (value && isPlayerReady) {
@@ -422,7 +426,7 @@ class MPVPlayer(
                     }
                 }
                 "playlist-current-pos" -> {
-                    if (!isNativePlaylistPrepared) return@post
+                    if (!isNativePlaylistPrepared || playbackError != null) return@post
                     // Native playlist edits can enqueue intermediate indices. By the time this
                     // callback runs, our timeline already contains the completed edit.
                     val observedIndex = mpvLib.getPropertyInt("playlist-current-pos") ?: return@post
@@ -466,7 +470,14 @@ class MPVPlayer(
     }
 
     override fun event(eventId: Int) {
+        val generation =
+            if (eventId == MpvEvent.MPV_EVENT_START_FILE) {
+                fileAttempt.onNativeStart()
+            } else {
+                fileAttempt.nativeGeneration
+            }
         handler.post {
+            if (!isNativePlaylistPrepared || !fileAttempt.accepts(generation)) return@post
             when (eventId) {
                 MpvEvent.MPV_EVENT_START_FILE -> {
                     if (!isPlayerReady) {
@@ -507,6 +518,25 @@ class MPVPlayer(
                 }
                 else -> Unit
             }
+        }
+    }
+
+    override fun eventEndFile(reason: Int, error: Int) {
+        val generation = fileAttempt.nativeGeneration
+        handler.post {
+            if (!isNativePlaylistPrepared || !fileAttempt.claimFailure(generation, reason))
+                return@post
+            val failure =
+                PlaybackException(
+                    "MPV playback failed (code $error)",
+                    null,
+                    PlaybackException.ERROR_CODE_UNSPECIFIED,
+                )
+            playbackError = failure
+            isPlayerReady = false
+            mpvLib.setPropertyBoolean("pause", true)
+            setPlayerStateAndNotifyIfChanged(playWhenReady = false, playbackState = STATE_IDLE)
+            listeners.sendEvent(EVENT_PLAYER_ERROR) { it.onPlayerError(failure) }
         }
     }
 
@@ -748,10 +778,9 @@ class MPVPlayer(
      *   [.getCurrentWindowIndex] and [.getCurrentPosition].
      */
     override fun setMediaItems(mediaItems: MutableList<MediaItem>, resetPosition: Boolean) {
-        mpvLib.command(arrayOf("playlist-clear"))
-        mpvLib.command(arrayOf("playlist-remove", "current"))
-        internalMediaItems = mediaItems
-        isNativePlaylistPrepared = false
+        val index = if (resetPosition) 0 else currentMediaItemIndex
+        val position = if (resetPosition) 0L else currentPosition
+        setMediaItems(mediaItems, index, position)
     }
 
     /**
@@ -772,12 +801,19 @@ class MPVPlayer(
         startWindowIndex: Int,
         startPositionMs: Long,
     ) {
+        val startIndex =
+            if (startWindowIndex == C.INDEX_UNSET) currentMediaItemIndex else startWindowIndex
+        val startPosition =
+            if (startWindowIndex == C.INDEX_UNSET) currentPosition else startPositionMs
+        isNativePlaylistPrepared = false
+        fileAttempt.requestFile()
         mpvLib.command(arrayOf("playlist-clear"))
         mpvLib.command(arrayOf("playlist-remove", "current"))
         internalMediaItems = mediaItems
-        isNativePlaylistPrepared = false
-        initialIndex = startWindowIndex
-        initialSeekTo = startPositionMs
+        oldMediaItem = null
+        currentMediaItemIndex = 0
+        initialIndex = startIndex
+        initialSeekTo = startPosition
     }
 
     /**
@@ -948,7 +984,9 @@ class MPVPlayer(
 
     /** Prepares the player. */
     override fun prepare() {
+        if (internalMediaItems.isEmpty()) return
         isNativePlaylistPrepared = true
+        prepareMediaItem(initialIndex, switchNativeEntry = false)
         internalMediaItems.forEachIndexed { index, mediaItem ->
             mpvLib.command(
                 arrayOf(
@@ -958,7 +996,9 @@ class MPVPlayer(
                 ),
             )
         }
-        prepareMediaItem(initialIndex)
+        if (currentMediaItemIndex != initialIndex) {
+            mpvLib.command(arrayOf("playlist-play-index", "$initialIndex"))
+        }
     }
 
     /**
@@ -992,9 +1032,7 @@ class MPVPlayer(
      * @return The error, or `null`.
      * @see Player.Listener.onPlayerError
      */
-    override fun getPlayerError(): PlaybackException? {
-        return null
-    }
+    override fun getPlayerError(): PlaybackException? = playbackError
 
     /**
      * Sets whether playback should proceed when [.getPlaybackState] == [.STATE_READY].
@@ -1136,8 +1174,11 @@ class MPVPlayer(
     private fun prepareMediaItem(
         index: Int,
         playWhenReady: Boolean = false,
+        switchNativeEntry: Boolean = true,
     ) {
         internalMediaItems.getOrNull(index)?.let { mediaItem ->
+            fileAttempt.requestFile()
+            playbackError = null
             resetInternalState()
             currentPlayWhenReady = playWhenReady
             mediaItem.localConfiguration?.subtitleConfigurations?.forEach { subtitle ->
@@ -1152,7 +1193,7 @@ class MPVPlayer(
                 )
             }
             // Avoid restarting the active entry and adding its external subtitles twice.
-            if (currentMediaItemIndex != index) {
+            if (switchNativeEntry && currentMediaItemIndex != index) {
                 mpvLib.command(arrayOf("playlist-play-index", "$index"))
             }
             setPlayerStateAndNotifyIfChanged(playbackState = STATE_BUFFERING)
@@ -1204,6 +1245,8 @@ class MPVPlayer(
     }
 
     override fun stop() {
+        isNativePlaylistPrepared = false
+        fileAttempt.requestFile()
         mpvLib.command(arrayOf("stop", "keep-playlist"))
     }
 
@@ -1220,6 +1263,8 @@ class MPVPlayer(
         resetInternalState()
         mpvLib.removeObserver(this)
         mpvLib.destroy()
+        handler.removeCallbacksAndMessages(null)
+        listeners.release()
     }
 
     override fun getCurrentTracks(): Tracks {

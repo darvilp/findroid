@@ -19,4 +19,5 @@
     <string name="synchronization_later">Later</string>
     <string name="synchronization_done">Done</string>
     <string name="synchronization_synchronized">Synchronized</string>
+    <string name="playback_back">Back</string>
 </resources>

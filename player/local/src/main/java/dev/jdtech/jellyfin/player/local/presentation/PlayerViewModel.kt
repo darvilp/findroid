@@ -11,6 +11,7 @@ import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.Timeline
 import androidx.media3.common.TrackSelectionOverride
@@ -44,6 +45,7 @@ import dev.jdtech.jellyfin.player.local.domain.MediaSegmentPlaybackPreferences
 import dev.jdtech.jellyfin.player.local.domain.PlaybackCompletionCoordinator
 import dev.jdtech.jellyfin.player.local.domain.PlaybackDetailsTarget
 import dev.jdtech.jellyfin.player.local.domain.PlaybackReportQueue
+import dev.jdtech.jellyfin.player.local.domain.PlaybackRequest
 import dev.jdtech.jellyfin.player.local.domain.PlaybackRestartController
 import dev.jdtech.jellyfin.player.local.domain.PlaybackRestartTarget
 import dev.jdtech.jellyfin.player.local.domain.PlaybackStopReport
@@ -128,6 +130,7 @@ constructor(
         val subtitleTracks: List<Track>,
         val fileLoaded: Boolean,
         val synchronization: PlaybackSynchronizationUiState?,
+        val playbackFailed: Boolean = false,
     )
 
     data class PlaybackSynchronizationUiState(
@@ -142,7 +145,11 @@ constructor(
 
     private val trackSelector = DefaultTrackSelector(application)
     var playWhenReady = true
-    private var currentMediaItemIndex = savedStateHandle["mediaItemIndex"] ?: 0
+    private var playbackRequest: PlaybackRequest? = null
+    private var failedRequest: PlaybackRequest? = null
+    private var playbackLoadJob: Job? = null
+    private var acceptPlayerErrors = false
+    private var showStartupErrorToast = true
     private val mediaSegmentPlayback = MediaSegmentPlayback()
     private val playbackCompletionCoordinator = PlaybackCompletionCoordinator()
     private val playbackReports =
@@ -299,56 +306,127 @@ constructor(
         itemKind: String,
         startFromBeginning: Boolean,
         initialTrackSelection: InitialTrackSelection? = null,
+        showStartupErrorToast: Boolean = true,
     ) {
+        if (playbackRequest != null) return
+        this.showStartupErrorToast = showStartupErrorToast
         player.addListener(this)
         updateTrackOptions(player.currentTracks)
+        loadPlayback(
+            PlaybackRequest(
+                itemId,
+                BaseItemKind.fromName(itemKind),
+                startFromBeginning,
+                initialTrackSelection,
+            ),
+        )
+    }
 
-        viewModelScope.launch {
-            val startItem =
-                try {
-                    playlistManager.getInitialItem(
-                        itemId = itemId,
-                        itemKind = BaseItemKind.fromName(itemKind),
-                        mediaSourceIndex = null,
-                        startFromBeginning = startFromBeginning,
-                        initialTrackSelection = initialTrackSelection,
-                    )
-                } catch (e: Exception) {
-                    Timber.e(e)
-                    Toast.makeText(application, e.localizedMessage, Toast.LENGTH_LONG).show()
-                    null
-                }
+    fun retryPlayback() {
+        val request = failedRequest ?: return
+        acceptPlayerErrors = false
+        player.stop()
+        loadPlayback(request)
+    }
 
-            if (startItem == null) {
-                Timber.e("No start item, stopping player initialization")
-                return@launch
-            }
+    private fun loadPlayback(request: PlaybackRequest) {
+        playbackLoadJob?.cancel()
+        playbackRequest = request
+        failedRequest = null
+        _uiState.update { it.copy(playbackFailed = false, fileLoaded = false) }
 
-            items = listOfNotNull(startItem).toMutableList()
-            currentMediaItemIndex = items.indexOf(startItem)
-
-            val mediaItems = mutableListOf<MediaItem>()
+        playbackLoadJob = viewModelScope.launch {
             try {
-                for (item in items) {
-                    mediaItems.add(item.toMediaItem())
+                val item =
+                    playlistManager.getInitialItem(
+                        itemId = request.itemId,
+                        itemKind = request.kind,
+                        startFromBeginning = request.startFromBeginning,
+                        initialTrackSelection = request.trackSelection,
+                    ) ?: throw IllegalStateException("No playable media source")
+                if (!isActive) return@launch
+                val media = item.toMediaItem()
+                val startPosition =
+                    request.positionMs
+                        ?: if (request.startFromBeginning) 0L
+                        else savedPosition(item.itemId) ?: item.playbackPosition
+
+                items = mutableListOf(item)
+                beginPlaybackPass(item.itemId)
+                acceptPlayerErrors = true
+                player.setMediaItems(listOf(media), 0, startPosition)
+                player.prepare()
+                if (failedRequest == null) player.play()
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (error: Exception) {
+                Timber.e(error, "Could not initialize playback")
+                if (!isActive) return@launch
+                showPlaybackFailure(request)
+                if (showStartupErrorToast) {
+                    Toast.makeText(application, R.string.playback_error, Toast.LENGTH_LONG).show()
                 }
-            } catch (e: Exception) {
-                Timber.e(e)
             }
-
-            val savedPosition =
-                savedStateHandle.get<Long>("position")?.takeIf {
-                    savedStateHandle.get<String>("positionItemId") == startItem.itemId.toString()
-                }
-            val startPosition =
-                if (startFromBeginning) 0L else savedPosition ?: startItem.playbackPosition
-
-            beginPlaybackPass(itemId = startItem.itemId)
-            player.setMediaItems(mediaItems, 0, startPosition)
-            player.prepare()
-            player.play()
         }
     }
+
+    override fun onPlayerError(error: PlaybackException) {
+        if (!acceptPlayerErrors) return
+        val request = playbackRequest ?: return
+        Timber.e(error, "Playback failed")
+        val currentId = player.currentMediaItem?.mediaId?.toUuidOrNull()
+        val currentItem = items.firstOrNull { it.itemId == currentId }
+        val retry =
+            currentItem?.let { item ->
+                val trackSelection =
+                    if (_uiState.value.fileLoaded) {
+                        currentPlaybackTrackReport(item.itemId)?.let {
+                            InitialTrackSelection(
+                                it.mediaSourceId,
+                                it.audioStreamIndex,
+                                it.subtitleStreamIndex,
+                            )
+                        }
+                    } else {
+                        InitialTrackSelection(
+                            item.mediaSourceId,
+                            item.initialAudioStreamIndex,
+                            item.initialSubtitleStreamIndex,
+                        )
+                    }
+                val position =
+                    player.currentPosition.takeIf { it > 0L } ?: savedPosition(item.itemId)
+                request.forRetry(
+                    activeId = item.itemId,
+                    activeKind =
+                        if (item.parentIndexNumber != null || item.indexNumber != null)
+                            BaseItemKind.EPISODE
+                        else BaseItemKind.MOVIE,
+                    positionMs = position,
+                    selection = trackSelection,
+                )
+            } ?: request
+        if (_uiState.value.fileLoaded && player.currentPosition > 0L) updatePlaybackProgress()
+        showPlaybackFailure(retry)
+    }
+
+    private fun showPlaybackFailure(request: PlaybackRequest) {
+        acceptPlayerErrors = false
+        reportingItemId = null
+        episodeQueueLoad.begin()
+        episodeQueueJob?.cancel()
+        episodeDetailsJob?.cancel()
+        adjacentTrackRefreshJob?.cancel()
+        failedRequest = request
+        _uiState.update {
+            it.copy(playbackFailed = true, fileLoaded = false, currentSegment = null)
+        }
+    }
+
+    private fun savedPosition(itemId: UUID): Long? =
+        savedStateHandle.get<Long>("position")?.takeIf {
+            savedStateHandle.get<String>("positionItemId") == itemId.toString()
+        }
 
     private fun PlayerItem.toMediaItem(): MediaItem {
         val streamUrl = mediaSourceUri
@@ -381,7 +459,6 @@ constructor(
 
         _uiState.update { it.copy(currentTrickplay = null) }
         playWhenReady = false
-        currentMediaItemIndex = 0
         player.removeListener(this)
         if (::mpvSynchronization.isInitialized) {
             mpvSynchronization.removeFileLoadedListener(onMpvFileLoaded)
@@ -390,6 +467,7 @@ constructor(
     }
 
     fun updatePlaybackProgress() {
+        if (!_uiState.value.fileLoaded) return
         val itemId = reportingItemId ?: return
         if (player.currentMediaItem?.mediaId != itemId.toString()) return
         val position = player.currentPosition.takeIf { it >= 0 } ?: return
@@ -450,12 +528,12 @@ constructor(
     }
 
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+        if (_uiState.value.playbackFailed) return
         Timber.d("Playing MediaItem: ${mediaItem?.mediaId}")
         val generation = episodeQueueLoad.begin()
         episodeQueueJob?.cancel()
         episodeDetailsJob?.cancel()
         adjacentTrackRefreshJob?.cancel()
-        savedStateHandle["mediaItemIndex"] = player.currentMediaItemIndex
         chapterNavigationController.reset()
         val transitionedItemId = mediaItem?.mediaId?.toUuidOrNull()
         _uiState.update {
@@ -588,6 +666,7 @@ constructor(
                 _uiState.update { it.copy(fileLoaded = true) }
             }
             ExoPlayer.STATE_ENDED -> {
+                if (_uiState.value.playbackFailed) return
                 stateString = "ExoPlayer.STATE_ENDED     -"
                 val completion =
                     playbackCompletionCoordinator.claimTerminalCompletion(
