@@ -33,6 +33,7 @@ import dev.jdtech.jellyfin.player.local.domain.ChapterNavigationController
 import dev.jdtech.jellyfin.player.local.domain.ChapterNavigationDirection
 import dev.jdtech.jellyfin.player.local.domain.ChapterNavigationState
 import dev.jdtech.jellyfin.player.local.domain.ChapterSeekTarget
+import dev.jdtech.jellyfin.player.local.domain.EpisodeQueueLoad
 import dev.jdtech.jellyfin.player.local.domain.InitialTrackApplicationState
 import dev.jdtech.jellyfin.player.local.domain.InitialTrackOverride
 import dev.jdtech.jellyfin.player.local.domain.InitialTrackOverrideResolver
@@ -66,6 +67,7 @@ import dev.jdtech.jellyfin.settings.domain.MpvSynchronizationKind
 import java.util.UUID
 import javax.inject.Inject
 import kotlin.math.ceil
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -74,6 +76,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jellyfin.sdk.model.api.BaseItemKind
@@ -165,6 +168,9 @@ constructor(
     private lateinit var mpvSynchronization: MpvSynchronization
     private val onMpvFileLoaded = { synchronizeMpvFile() }
     private var adjacentTrackRefreshJob: Job? = null
+    private val episodeQueueLoad = EpisodeQueueLoad()
+    private var episodeQueueJob: Job? = null
+    private var episodeDetailsJob: Job? = null
 
     // Segments preferences
     var segmentsSkipButton: Boolean = false
@@ -445,6 +451,10 @@ constructor(
 
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
         Timber.d("Playing MediaItem: ${mediaItem?.mediaId}")
+        val generation = episodeQueueLoad.begin()
+        episodeQueueJob?.cancel()
+        episodeDetailsJob?.cancel()
+        adjacentTrackRefreshJob?.cancel()
         savedStateHandle["mediaItemIndex"] = player.currentMediaItemIndex
         chapterNavigationController.reset()
         val transitionedItemId = mediaItem?.mediaId?.toUuidOrNull()
@@ -467,65 +477,59 @@ constructor(
         playbackReports.enqueue { repository.postPlaybackStart(itemId, tracks) }
         initialTrackApplicationState.reset(itemId)
         beginPlaybackPass(itemId = itemId)
-        viewModelScope.launch {
-            try {
-                items
-                    .first { it.itemId.toString() == transitionedMediaId }
-                    .let { item ->
-                        val itemTitle =
-                            if (item.parentIndexNumber != null && item.indexNumber != null) {
-                                if (item.indexNumberEnd == null) {
-                                    "S${item.parentIndexNumber}:E${item.indexNumber} - ${item.name}"
-                                } else {
-                                    "S${item.parentIndexNumber}:E${item.indexNumber}-${item.indexNumberEnd} - ${item.name}"
-                                }
-                            } else {
-                                item.name
-                            }
-                        if (player.currentMediaItem?.mediaId != transitionedMediaId) return@launch
-                        _uiState.update {
-                            it.copy(
-                                currentItemTitle = itemTitle,
-                                currentSegment = null,
-                                currentChapters = item.chapters,
-                                fileLoaded = false,
-                            )
-                        }
+        val item = items.firstOrNull { it.itemId == itemId } ?: return
+        val itemTitle =
+            if (item.parentIndexNumber != null && item.indexNumber != null) {
+                val episodeNumber =
+                    item.indexNumberEnd?.let { "${item.indexNumber}-$it" } ?: item.indexNumber
+                "S${item.parentIndexNumber}:E$episodeNumber - ${item.name}"
+            } else {
+                item.name
+            }
+        _uiState.update {
+            it.copy(
+                currentItemTitle = itemTitle,
+                currentChapters = item.chapters,
+                currentTrickplay = null,
+                fileLoaded = false,
+            )
+        }
 
-                        if (segmentsSkipButton || segmentsAutoSkip) {
-                            getSegments(item.itemId)
-                        }
-
-                        if (appPreferences.getValue(appPreferences.playerTrickplay)) {
-                            getTrickplay(item)
-                        }
-
-                        playlistManager.setCurrentMediaItemIndex(item.itemId)
-
-                        val previousItem = playlistManager.getPreviousPlayerItem()
-                        if (previousItem != null) {
-                            items.add(player.currentMediaItemIndex, previousItem)
-                            player.addMediaItem(
-                                player.currentMediaItemIndex,
-                                previousItem.toMediaItem(),
-                            )
-                        }
-
-                        val nextItem = playlistManager.getNextPlayerItem()
-                        if (nextItem != null) {
-                            items.add(player.currentMediaItemIndex + 1, nextItem)
-                            player.addMediaItem(
-                                player.currentMediaItemIndex + 1,
-                                nextItem.toMediaItem(),
-                            )
-                        }
-
+        val isAnchorCurrent = { player.currentMediaItem?.mediaId == transitionedMediaId }
+        episodeQueueJob = viewModelScope.launch {
+            episodeQueueLoad.load(
+                generation,
+                isAnchorCurrent = isAnchorCurrent,
+                fetch = { direction -> playlistManager.loadAdjacentItem(itemId, direction) },
+                insert = { direction, prepared ->
+                    val neighbor = prepared.item
+                    if (items.none { it.itemId == neighbor.itemId }) {
+                        val anchor = player.currentMediaItemIndex
+                        val index =
+                            if (direction == PlaylistNavigationDirection.Previous) anchor
+                            else anchor + 1
+                        val media = neighbor.toMediaItem()
+                        playlistManager.registerPlayerItem(prepared)
+                        items.add(index, neighbor)
+                        player.addMediaItem(index, media)
                         updatePlaylistNavigationState()
-
-                        Timber.tag("PlayerItems").d(items.map { it.indexNumber }.toString())
                     }
-            } catch (e: Exception) {
-                Timber.e(e)
+                },
+            )
+        }
+        episodeDetailsJob = viewModelScope.launch {
+            try {
+                if (segmentsSkipButton || segmentsAutoSkip) getSegments(itemId)
+                if (appPreferences.getValue(appPreferences.playerTrickplay)) {
+                    val trickplay = getTrickplay(item)
+                    if (episodeQueueLoad.isCurrent(generation) && isAnchorCurrent()) {
+                        _uiState.update { it.copy(currentTrickplay = trickplay) }
+                    }
+                }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (error: Exception) {
+                Timber.e(error, "Failed to load playback details")
             }
         }
     }
@@ -783,18 +787,21 @@ constructor(
         adjacentTrackRefreshJob?.cancel()
         adjacentTrackRefreshJob = viewModelScope.launch {
             adjacentItemIds.forEach { itemId ->
-                val rebuilt = playlistManager.rebuildPlayerItem(itemId) ?: return@forEach
-                if (player.currentMediaItem?.mediaId != anchorMediaId) return@launch
+                val prepared = playlistManager.rebuildPlayerItem(itemId) ?: return@forEach
+                if (!isActive || player.currentMediaItem?.mediaId != anchorMediaId) return@launch
                 val timelineIndex =
                     (0 until player.mediaItemCount).firstOrNull {
                         player.getMediaItemAt(it).mediaId == itemId.toString()
                     } ?: return@forEach
+                val rebuilt = prepared.item
+                val media = rebuilt.toMediaItem()
+                playlistManager.registerPlayerItem(prepared)
                 items
                     .indexOfFirst { it.itemId == itemId }
                     .takeIf { it >= 0 }
                     ?.let { items[it] = rebuilt }
                 initialTrackApplicationState.reset(itemId)
-                player.replaceMediaItem(timelineIndex, rebuilt.toMediaItem())
+                player.replaceMediaItem(timelineIndex, media)
             }
         }
     }
@@ -968,6 +975,8 @@ constructor(
         try {
             val segments = repository.getSegments(itemId)
             mediaSegmentPlayback.updateSegments(itemId = itemId, segments = segments)
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (e: Exception) {
             mediaSegmentPlayback.updateSegments(itemId = itemId, segments = emptyList())
             Timber.e(e)
@@ -1042,11 +1051,11 @@ constructor(
             manualSkipTypes = segmentsSkipButtonTypes,
         )
 
-    private suspend fun getTrickplay(item: PlayerItem) {
-        val trickplayInfo = item.trickplayInfo ?: return
+    private suspend fun getTrickplay(item: PlayerItem): Trickplay? {
+        val trickplayInfo = item.trickplayInfo ?: return null
         Timber.d("Trickplay Resolution: ${trickplayInfo.width}")
 
-        withContext(Dispatchers.Default) {
+        return withContext(Dispatchers.Default) {
             val maxIndex =
                 ceil(
                         trickplayInfo.thumbnailCount
@@ -1078,9 +1087,7 @@ constructor(
                     }
                 }
             }
-            _uiState.update {
-                it.copy(currentTrickplay = Trickplay(trickplayInfo.interval, bitmaps))
-            }
+            Trickplay(trickplayInfo.interval, bitmaps)
         }
     }
 
