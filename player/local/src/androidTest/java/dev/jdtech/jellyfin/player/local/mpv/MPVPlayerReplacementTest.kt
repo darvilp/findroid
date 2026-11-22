@@ -3,8 +3,11 @@ package dev.jdtech.jellyfin.player.local.mpv
 import android.net.Uri
 import android.os.SystemClock
 import androidx.media3.common.AudioAttributes
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.Player
+import androidx.media3.common.TrackSelectionOverride
 import androidx.test.platform.app.InstrumentationRegistry
 import dev.jdtech.mpv.MPVLib
 import java.io.File
@@ -160,6 +163,67 @@ class MPVPlayerReplacementTest {
         awaitReady("item-1")
         onMain { player.seekToPreviousMediaItem() }
         awaitReady("item-3")
+    }
+
+    @Test
+    fun externalSubtitleKeepsItsOwnStreamIndexAndNativeSelection() {
+        val video = File(fixtureDirectory, "subtitle-selection.mkv")
+        instrumentation.context.assets.open(video.name).use { input ->
+            video.outputStream().use { input.copyTo(it) }
+        }
+        val sidecar =
+            File(fixtureDirectory, "Sidecar subtitle.srt").apply {
+                writeText("1\n00:00:00,000 --> 00:00:10,000\nExternal subtitle\n")
+            }
+        val subtitle =
+            MediaItem.SubtitleConfiguration.Builder(Uri.fromFile(sidecar))
+                .setMimeType(MimeTypes.APPLICATION_SUBRIP)
+                .setLabel("Sidecar")
+                .setId("42")
+                .build()
+        val item =
+            MediaItem.Builder()
+                .setMediaId("sidecar")
+                .setUri(Uri.fromFile(video))
+                .setSubtitleConfigurations(listOf(subtitle))
+                .build()
+        onMain {
+            player.setMediaItems(mutableListOf(item), 0, 0L)
+            player.prepare()
+            player.play()
+        }
+        awaitReady(item.mediaId)
+        var nativeId: String? = null
+        awaitCondition("external subtitle") {
+            nativeId =
+                player.externalSubtitleStreamIndices.entries.singleOrNull { it.value == 42 }?.key
+            nativeId != null
+        }
+        onMain {
+            check(nativeId != "42")
+            val group =
+                player.currentTracks.groups.single {
+                    it.type == C.TRACK_TYPE_TEXT && it.getTrackFormat(0).id == nativeId
+                }
+            player.trackSelectionParameters =
+                player.trackSelectionParameters
+                    .buildUpon()
+                    .setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, 0))
+                    .build()
+            assertEquals(nativeId, nativePlayer.getPropertyString("sid"))
+            assertEquals(42, player.externalSubtitleStreamIndices[nativeId])
+        }
+    }
+
+    private fun awaitCondition(label: String, predicate: () -> Boolean) {
+        val deadline = SystemClock.elapsedRealtime() + 10000L
+        while (SystemClock.elapsedRealtime() < deadline) {
+            var succeeded = false
+            onMain { succeeded = predicate() }
+            if (succeeded) return
+            SystemClock.sleep(50L)
+        }
+        throw AssertionError("Timed out waiting for $label")
     }
 
     private fun startAt(index: Int) {

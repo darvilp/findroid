@@ -42,6 +42,33 @@ class RuntimeTrackResolverTest {
         )
     }
 
+    @Test
+    fun `MPV selects the registered sidecar despite an embedded native ID collision`() {
+        val streams = listOf(subtitle(index = 42, title = "Full Subtitles"))
+        val embedded =
+            runtimeTrack(group = 0, id = "42", title = "Full Subtitles")
+                .copy(isExternalSubtitle = false)
+        val sidecar =
+            runtimeTrack(group = 1, id = "2", title = "Full Subtitles")
+                .copy(isExternalSubtitle = true, externalSubtitleStreamIndex = 42, selected = true)
+        assertNull(RuntimeTrackResolver.resolve(42, streams, listOf(embedded)))
+        assertEquals("2", RuntimeTrackResolver.resolve(42, streams, listOf(embedded, sidecar))?.id)
+        assertEquals(
+            42,
+            RuntimeTrackResolver.resolveSourceStream(sidecar, streams, listOf(embedded, sidecar))
+                ?.index,
+        )
+    }
+
+    @Test
+    fun `an unregistered MPV sidecar cannot match by numeric native ID`() {
+        val streams = listOf(subtitle(index = 42, title = "Full Subtitles"))
+        val unresolved =
+            runtimeTrack(group = 0, id = "42", title = "Full Subtitles")
+                .copy(isExternalSubtitle = true)
+        assertNull(RuntimeTrackResolver.resolve(42, streams, listOf(unresolved)))
+    }
+
     private fun subtitle(index: Int, title: String) =
         FindroidMediaStream(
             title = title,

@@ -312,6 +312,10 @@ class MPVPlayer(
 
     @Player.RepeatMode private val repeatMode: Int = REPEAT_MODE_OFF
     private var currentTracks: Tracks = Tracks.EMPTY
+    private var trackFileLoaded = false
+    internal var externalSubtitleStreamIndices: Map<String, Int?> = emptyMap()
+        private set
+
     private var playbackParameters: PlaybackParameters = PlaybackParameters.DEFAULT
 
     // MPV Custom
@@ -334,16 +338,22 @@ class MPVPlayer(
     }
 
     override fun eventProperty(property: String, value: String) {
-        handler.post {
-            when (property) {
-                "track-list" -> {
-                    val newTracks = getTracks(value)
-                    currentTracks = newTracks
-                    listeners.sendEvent(EVENT_TRACKS_CHANGED) { listener ->
-                        listener.onTracksChanged(currentTracks)
-                    }
-                }
+        if (property == "track-list") handler.post { publishTracks() }
+    }
+
+    private fun publishTracks() {
+        if (!isNativePlaylistPrepared || !trackFileLoaded) return
+        if (mpvLib.getPropertyInt("playlist-current-pos") != currentMediaItemIndex) return
+        val trackList = mpvLib.getPropertyString("track-list") ?: return
+        val subtitles =
+            currentMediaItem?.localConfiguration?.subtitleConfigurations.orEmpty().map {
+                it.uri.toString() to it.id?.toIntOrNull()
             }
+        val (tracks, externalSubtitles) = getTracks(trackList, subtitles)
+        if (tracks != currentTracks || externalSubtitles != externalSubtitleStreamIndices) {
+            externalSubtitleStreamIndices = externalSubtitles
+            currentTracks = tracks
+            listeners.sendEvent(EVENT_TRACKS_CHANGED) { it.onTracksChanged(currentTracks) }
         }
     }
 
@@ -435,6 +445,7 @@ class MPVPlayer(
                                 MEDIA_ITEM_TRANSITION_REASON_AUTO,
                             )
                         }
+                        publishTracks()
                     }
                 }
             }
@@ -465,6 +476,8 @@ class MPVPlayer(
                     }
                 }
                 MpvEvent.MPV_EVENT_FILE_LOADED -> {
+                    trackFileLoaded = true
+                    publishTracks()
                     isSeekable = mpvLib.getPropertyBoolean("seekable") == true
                     currentDurationMs =
                         (mpvLib.getPropertyDouble("duration")?.times(C.MILLIS_PER_SECOND))?.toLong()
@@ -926,6 +939,8 @@ class MPVPlayer(
         currentDurationMs = null
         currentCacheDurationMs = null
         currentTracks = Tracks.EMPTY
+        trackFileLoaded = false
+        externalSubtitleStreamIndices = emptyMap()
         playbackParameters = PlaybackParameters.DEFAULT
         initialCommands.clear()
         pendingPlaylistInsertion = null
@@ -1744,21 +1759,30 @@ class MPVPlayer(
             )
         }
 
-        private fun getTracks(trackList: String): Tracks {
+        private fun getTracks(
+            trackList: String,
+            registeredSubtitles: List<Pair<String, Int?>>,
+        ): Pair<Tracks, Map<String, Int?>> {
             var tracks = Tracks.EMPTY
+            val externalSubtitles = mutableMapOf<String, Int?>()
             val trackGroups = mutableListOf<Tracks.Group>()
             try {
                 val currentTrackList = JSONArray(trackList)
                 for (index in 0 until currentTrackList.length()) {
-                    val tracksGroup =
-                        createTracksGroupfromMpvJson(currentTrackList.getJSONObject(index))
-                    trackGroups.add(tracksGroup)
+                    val track = currentTrackList.getJSONObject(index)
+                    trackGroups.add(createTracksGroupfromMpvJson(track))
+                    if (track.optString("type") == "sub" && track.optBoolean("external")) {
+                        val filename = track.optNullableString("external-filename")
+                        externalSubtitles[track.getInt("id").toString()] = filename?.let {
+                            externalSubtitleStreamIndex(it, registeredSubtitles)
+                        }
+                    }
                 }
                 if (trackGroups.isNotEmpty()) {
                     tracks = Tracks(trackGroups)
                 }
             } catch (_: JSONException) {}
-            return tracks
+            return tracks to externalSubtitles
         }
     }
 }

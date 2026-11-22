@@ -613,8 +613,15 @@ constructor(
         releasePlayer()
     }
 
+    private fun Tracks.toPlaybackTrackOptions(type: Int): List<Track> =
+        toTrackOptions(
+            type,
+            if (type == C.TRACK_TYPE_TEXT) (player as? MPVPlayer)?.externalSubtitleStreamIndices
+            else null,
+        )
+
     fun currentTrackOptions(trackType: @C.TrackType Int): List<Track> =
-        player.currentTracks.toTrackOptions(trackType)
+        player.currentTracks.toPlaybackTrackOptions(trackType)
 
     /**
      * Select an exact Media3 group/format pair. Passing two null indices disables the type.
@@ -676,7 +683,8 @@ constructor(
         if (tracks.groups.isEmpty()) return
         val item = items.firstOrNull { it.itemId == itemId } ?: return
         val runtimeTracks =
-            tracks.toTrackOptions(C.TRACK_TYPE_AUDIO) + tracks.toTrackOptions(C.TRACK_TYPE_TEXT)
+            tracks.toPlaybackTrackOptions(C.TRACK_TYPE_AUDIO) +
+                tracks.toPlaybackTrackOptions(C.TRACK_TYPE_TEXT)
         val overrides =
             InitialTrackOverrideResolver.resolve(
                 item = item,
@@ -809,8 +817,8 @@ constructor(
     private fun updateTrackOptions(tracks: Tracks) {
         _uiState.update {
             it.copy(
-                audioTracks = tracks.toTrackOptions(C.TRACK_TYPE_AUDIO),
-                subtitleTracks = tracks.toTrackOptions(C.TRACK_TYPE_TEXT),
+                audioTracks = tracks.toPlaybackTrackOptions(C.TRACK_TYPE_AUDIO),
+                subtitleTracks = tracks.toPlaybackTrackOptions(C.TRACK_TYPE_TEXT),
             )
         }
         updateSynchronizationUiState()

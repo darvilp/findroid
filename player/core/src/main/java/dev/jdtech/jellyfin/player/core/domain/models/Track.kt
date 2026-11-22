@@ -12,6 +12,8 @@ data class Track(
     val id: String? = null,
     val rawLanguage: String? = null,
     val channelCount: Int? = null,
+    val isExternalSubtitle: Boolean? = null,
+    val externalSubtitleStreamIndex: Int? = null,
 )
 
 /** Resolve an exact track identity from a possibly stale set of UI options. */

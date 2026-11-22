@@ -17,11 +17,18 @@ object RuntimeTrackResolver {
             it.supported && it.type == stream.runtimeTrackType()
         }
         if (stream.isExternal) {
-            return supported.singleOrNull { it.id == jellyfinStreamIndex.toString() }
+            return supported.singleOrNull { track ->
+                when (track.isExternalSubtitle) {
+                    true -> track.externalSubtitleStreamIndex == jellyfinStreamIndex
+                    false -> false
+                    null -> track.id == jellyfinStreamIndex.toString()
+                }
+            }
         }
 
         val fingerprint = QueueTrackFingerprint.fromStream(stream, jellyfinStreams) ?: return null
         return supported
+            .filter { it.isExternalSubtitle != true }
             .mapIndexed { ordinal, track ->
                 RuntimeCandidate(
                     track = track,
