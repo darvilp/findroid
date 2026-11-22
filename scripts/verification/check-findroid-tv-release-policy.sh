@@ -86,8 +86,8 @@ release_values=app/tv/build/generated/res/resValues/libre/release/values/gradleR
 
 bundle_metadata=$(<"$bundle_manifest")
 assert_contains "$bundle_metadata" 'package="dev.jdtech.jellyfin.atv"' "release bundle application ID is wrong"
-assert_contains "$bundle_metadata" 'android:versionCode="33001"' "release bundle version code is wrong"
-assert_contains "$bundle_metadata" 'android:versionName="1.1.0-atv.1"' "release bundle version name is wrong"
+assert_contains "$bundle_metadata" 'android:versionCode="33002"' "release bundle version code is wrong"
+assert_contains "$bundle_metadata" 'android:versionName="1.1.0-atv.2"' "release bundle version name is wrong"
 
 release_resources=$(<"$release_values")
 assert_contains "$release_resources" '>Findroid TV</string>' "release label is wrong"

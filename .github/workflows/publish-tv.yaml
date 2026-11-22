@@ -53,11 +53,11 @@ jobs:
         with:
           name: findroid-tv-release-assets
           path: |
-            ${{ runner.temp }}/findroid-tv-assets/findroid-tv-1.1.0-atv.1-armeabi-v7a.apk
-            ${{ runner.temp }}/findroid-tv-assets/findroid-tv-1.1.0-atv.1-arm64-v8a.apk
-            ${{ runner.temp }}/findroid-tv-assets/findroid-tv-1.1.0-atv.1-x86.apk
-            ${{ runner.temp }}/findroid-tv-assets/findroid-tv-1.1.0-atv.1-x86_64.apk
-            ${{ runner.temp }}/findroid-tv-assets/findroid-tv-1.1.0-atv.1-universal.apk
+            ${{ runner.temp }}/findroid-tv-assets/findroid-tv-1.1.0-atv.2-armeabi-v7a.apk
+            ${{ runner.temp }}/findroid-tv-assets/findroid-tv-1.1.0-atv.2-arm64-v8a.apk
+            ${{ runner.temp }}/findroid-tv-assets/findroid-tv-1.1.0-atv.2-x86.apk
+            ${{ runner.temp }}/findroid-tv-assets/findroid-tv-1.1.0-atv.2-x86_64.apk
+            ${{ runner.temp }}/findroid-tv-assets/findroid-tv-1.1.0-atv.2-universal.apk
             ${{ runner.temp }}/findroid-tv-assets/SHA256SUMS
             ${{ runner.temp }}/findroid-tv-assets/CERTIFICATE_SHA256
           if-no-files-found: error
@@ -112,9 +112,9 @@ jobs:
           prerelease: true
           body_path: docs/releases/${{ github.ref_name }}.md
           files: |
-            ${{ runner.temp }}/findroid-tv-assets/findroid-tv-1.1.0-atv.1-armeabi-v7a.apk
-            ${{ runner.temp }}/findroid-tv-assets/findroid-tv-1.1.0-atv.1-arm64-v8a.apk
-            ${{ runner.temp }}/findroid-tv-assets/findroid-tv-1.1.0-atv.1-x86.apk
-            ${{ runner.temp }}/findroid-tv-assets/findroid-tv-1.1.0-atv.1-x86_64.apk
-            ${{ runner.temp }}/findroid-tv-assets/findroid-tv-1.1.0-atv.1-universal.apk
+            ${{ runner.temp }}/findroid-tv-assets/findroid-tv-1.1.0-atv.2-armeabi-v7a.apk
+            ${{ runner.temp }}/findroid-tv-assets/findroid-tv-1.1.0-atv.2-arm64-v8a.apk
+            ${{ runner.temp }}/findroid-tv-assets/findroid-tv-1.1.0-atv.2-x86.apk
+            ${{ runner.temp }}/findroid-tv-assets/findroid-tv-1.1.0-atv.2-x86_64.apk
+            ${{ runner.temp }}/findroid-tv-assets/findroid-tv-1.1.0-atv.2-universal.apk
             ${{ runner.temp }}/findroid-tv-assets/SHA256SUMS

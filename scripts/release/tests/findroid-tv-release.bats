@@ -63,11 +63,11 @@ EOF
     make_fake_gradle
     run "$REPO_ROOT/scripts/release/build-findroid-tv-release.sh" "$TEST_ROOT/out"
     [ "$status" -eq 0 ]
-    cp "$TEST_ROOT/out/findroid-tv-1.1.0-atv.1-arm64-v8a.apk" "$TEST_ROOT/old"
+    cp "$TEST_ROOT/out/findroid-tv-1.1.0-atv.2-arm64-v8a.apk" "$TEST_ROOT/old"
     sed -i '/case/i [[ " $* " == *" -PfindroidTvUniversalApk=true "* ]] \&\& exit 9' "$FINDROID_TV_GRADLEW"
     run "$REPO_ROOT/scripts/release/build-findroid-tv-release.sh" "$TEST_ROOT/out"
     [ "$status" -ne 0 ]
-    cmp "$TEST_ROOT/old" "$TEST_ROOT/out/findroid-tv-1.1.0-atv.1-arm64-v8a.apk"
+    cmp "$TEST_ROOT/old" "$TEST_ROOT/out/findroid-tv-1.1.0-atv.2-arm64-v8a.apk"
     [ "$(find "$TEST_ROOT/out" -maxdepth 1 -name '*.apk' | wc -l)" -eq 5 ]
 }
 
@@ -76,7 +76,7 @@ seed_prior_managed_set() {
     run "$REPO_ROOT/scripts/release/build-findroid-tv-release.sh" "$TEST_ROOT/out"
     [ "$status" -eq 0 ]
     for abi in armeabi-v7a arm64-v8a x86 x86_64 universal; do
-        printf 'old-%s' "$abi" >"$TEST_ROOT/out/findroid-tv-1.1.0-atv.1-$abi.apk"
+        printf 'old-%s' "$abi" >"$TEST_ROOT/out/findroid-tv-1.1.0-atv.2-$abi.apk"
     done
     printf old-checksums >"$TEST_ROOT/out/SHA256SUMS"
     printf old-certificate >"$TEST_ROOT/out/CERTIFICATE_SHA256"
@@ -148,8 +148,8 @@ EOF
 
 make_fake_tools() {
     local package=${1:-dev.jdtech.jellyfin.atv}
-    local version=${2:-1.1.0-atv.1}
-    local code=${3:-33001}
+    local version=${2:-1.1.0-atv.2}
+    local code=${3:-33002}
     local fingerprint=${4:-AA:BB}
     cat >"$ANDROID_HOME/build-tools/37.0.0/aapt2" <<EOF
 #!/usr/bin/env bash
@@ -195,13 +195,13 @@ EOF
     run "$REPO_ROOT/scripts/release/build-findroid-tv-release.sh" "$TEST_ROOT/out"
     [ "$status" -eq 0 ]
     run bash -c "cd '$TEST_ROOT/out' && printf '%s\n' * | sort"
-    [ "$output" = $'findroid-tv-1.1.0-atv.1-arm64-v8a.apk\nfindroid-tv-1.1.0-atv.1-armeabi-v7a.apk\nfindroid-tv-1.1.0-atv.1-universal.apk\nfindroid-tv-1.1.0-atv.1-x86.apk\nfindroid-tv-1.1.0-atv.1-x86_64.apk\nunrelated.txt' ]
-    [ "$(cat "$TEST_ROOT/out/findroid-tv-1.1.0-atv.1-armeabi-v7a.apk")" = armeabi-v7a ]
+    [ "$output" = $'findroid-tv-1.1.0-atv.2-arm64-v8a.apk\nfindroid-tv-1.1.0-atv.2-armeabi-v7a.apk\nfindroid-tv-1.1.0-atv.2-universal.apk\nfindroid-tv-1.1.0-atv.2-x86.apk\nfindroid-tv-1.1.0-atv.2-x86_64.apk\nunrelated.txt' ]
+    [ "$(cat "$TEST_ROOT/out/findroid-tv-1.1.0-atv.2-armeabi-v7a.apk")" = armeabi-v7a ]
 }
 
 @test "verification rejects package or version mismatch" {
     make_fake_tools wrong.package
-    for abi in armeabi-v7a arm64-v8a x86 x86_64 universal; do touch "$TEST_ROOT/out/findroid-tv-1.1.0-atv.1-$abi.apk"; done
+    for abi in armeabi-v7a arm64-v8a x86 x86_64 universal; do touch "$TEST_ROOT/out/findroid-tv-1.1.0-atv.2-$abi.apk"; done
     run "$REPO_ROOT/scripts/release/verify-findroid-tv-release.sh" "$TEST_ROOT/out"
     [ "$status" -ne 0 ]
     [[ "$output" == *"package or version mismatch"* ]]
@@ -210,7 +210,7 @@ EOF
 @test "verification rejects an incorrect ABI set" {
     make_fake_tools
     sed -i 's/echo lib\/x86\/x.so/printf "%s\\n" lib\/x86\/x.so lib\/arm64-v8a\/x.so/' "$TEST_ROOT/bin/unzip"
-    for abi in armeabi-v7a arm64-v8a x86 x86_64 universal; do touch "$TEST_ROOT/out/findroid-tv-1.1.0-atv.1-$abi.apk"; done
+    for abi in armeabi-v7a arm64-v8a x86 x86_64 universal; do touch "$TEST_ROOT/out/findroid-tv-1.1.0-atv.2-$abi.apk"; done
     run "$REPO_ROOT/scripts/release/verify-findroid-tv-release.sh" "$TEST_ROOT/out"
     [ "$status" -ne 0 ]
     [[ "$output" == *"ABI set mismatch"* ]]
@@ -219,7 +219,7 @@ EOF
 @test "verification rejects certificate fingerprint mismatch" {
     make_fake_tools
     sed -i 's/AA:BB/CC:DD/' "$ANDROID_HOME/build-tools/37.0.0/apksigner"
-    for abi in armeabi-v7a arm64-v8a x86 x86_64 universal; do touch "$TEST_ROOT/out/findroid-tv-1.1.0-atv.1-$abi.apk"; done
+    for abi in armeabi-v7a arm64-v8a x86 x86_64 universal; do touch "$TEST_ROOT/out/findroid-tv-1.1.0-atv.2-$abi.apk"; done
     # Give one artifact a distinct signer result.
     sed -i '/echo/i [[ "${@: -1}" == *x86.apk ]] \&\& { echo "Number of signers: 1"; echo "Signer #1 certificate SHA-256 digest: EE:FF"; exit 0; }' "$ANDROID_HOME/build-tools/37.0.0/apksigner"
     run "$REPO_ROOT/scripts/release/verify-findroid-tv-release.sh" "$TEST_ROOT/out"
@@ -230,7 +230,7 @@ EOF
 @test "verification accepts current Build Tools 37 V2 signer output" {
     make_fake_tools
     sed -i 's/Signer #1 certificate SHA-256 digest: AA:BB/V2 Signer: certificate SHA-256 digest: AA:BB/' "$ANDROID_HOME/build-tools/37.0.0/apksigner"
-    for abi in armeabi-v7a arm64-v8a x86 x86_64 universal; do touch "$TEST_ROOT/out/findroid-tv-1.1.0-atv.1-$abi.apk"; done
+    for abi in armeabi-v7a arm64-v8a x86 x86_64 universal; do touch "$TEST_ROOT/out/findroid-tv-1.1.0-atv.2-$abi.apk"; done
     run "$REPO_ROOT/scripts/release/verify-findroid-tv-release.sh" --write-manifests "$TEST_ROOT/out"
     [ "$status" -eq 0 ]
     [[ "$output" == *"certificate SHA-256: AA:BB"* ]]
@@ -239,7 +239,7 @@ EOF
 @test "verification rejects multiple distinct fingerprint lines for one signer" {
     make_fake_tools
     sed -i '/Signer #1/a echo "V2 Signer: certificate SHA-256 digest: CC:DD"' "$ANDROID_HOME/build-tools/37.0.0/apksigner"
-    for abi in armeabi-v7a arm64-v8a x86 x86_64 universal; do touch "$TEST_ROOT/out/findroid-tv-1.1.0-atv.1-$abi.apk"; done
+    for abi in armeabi-v7a arm64-v8a x86 x86_64 universal; do touch "$TEST_ROOT/out/findroid-tv-1.1.0-atv.2-$abi.apk"; done
     run "$REPO_ROOT/scripts/release/verify-findroid-tv-release.sh" "$TEST_ROOT/out"
     [ "$status" -ne 0 ]
     [[ "$output" == *"exactly one signer"* ]]
@@ -249,7 +249,7 @@ EOF
     make_fake_tools
     sed -i 's/Number of signers: 1/Number of signers: 2/' "$ANDROID_HOME/build-tools/37.0.0/apksigner"
     sed -i '/Signer #1/c echo "V2 Signer #1: certificate SHA-256 digest: AA:BB"\necho "V2 Signer #2: certificate SHA-256 digest: 11:22"' "$ANDROID_HOME/build-tools/37.0.0/apksigner"
-    for abi in armeabi-v7a arm64-v8a x86 x86_64 universal; do touch "$TEST_ROOT/out/findroid-tv-1.1.0-atv.1-$abi.apk"; done
+    for abi in armeabi-v7a arm64-v8a x86 x86_64 universal; do touch "$TEST_ROOT/out/findroid-tv-1.1.0-atv.2-$abi.apk"; done
     run "$REPO_ROOT/scripts/release/verify-findroid-tv-release.sh" "$TEST_ROOT/out"
     [ "$status" -ne 0 ]
     [[ "$output" == *"exactly one signer"* ]]
@@ -258,7 +258,7 @@ EOF
 @test "verification rejects Build Tools 37 output without the authoritative one-signer count" {
     make_fake_tools
     sed -i '/Number of signers/d' "$ANDROID_HOME/build-tools/37.0.0/apksigner"
-    for abi in armeabi-v7a arm64-v8a x86 x86_64 universal; do touch "$TEST_ROOT/out/findroid-tv-1.1.0-atv.1-$abi.apk"; done
+    for abi in armeabi-v7a arm64-v8a x86 x86_64 universal; do touch "$TEST_ROOT/out/findroid-tv-1.1.0-atv.2-$abi.apk"; done
     run "$REPO_ROOT/scripts/release/verify-findroid-tv-release.sh" "$TEST_ROOT/out"
     [ "$status" -ne 0 ]
     [[ "$output" == *"exactly one signer"* ]]
@@ -266,7 +266,7 @@ EOF
 
 @test "verification propagates signature and alignment failures" {
     make_fake_tools
-    for abi in armeabi-v7a arm64-v8a x86 x86_64 universal; do touch "$TEST_ROOT/out/findroid-tv-1.1.0-atv.1-$abi.apk"; done
+    for abi in armeabi-v7a arm64-v8a x86 x86_64 universal; do touch "$TEST_ROOT/out/findroid-tv-1.1.0-atv.2-$abi.apk"; done
     sed -i '2i exit 7' "$ANDROID_HOME/build-tools/37.0.0/apksigner"
     run "$REPO_ROOT/scripts/release/verify-findroid-tv-release.sh" "$TEST_ROOT/out"
     [[ "$output" == *"signature verification failed"* ]]
@@ -277,18 +277,18 @@ EOF
 }
 
 @test "verification separately rejects wrong version name and code" {
-    for abi in armeabi-v7a arm64-v8a x86 x86_64 universal; do touch "$TEST_ROOT/out/findroid-tv-1.1.0-atv.1-$abi.apk"; done
-    make_fake_tools dev.jdtech.jellyfin.atv wrong 33001
+    for abi in armeabi-v7a arm64-v8a x86 x86_64 universal; do touch "$TEST_ROOT/out/findroid-tv-1.1.0-atv.2-$abi.apk"; done
+    make_fake_tools dev.jdtech.jellyfin.atv wrong 33002
     run "$REPO_ROOT/scripts/release/verify-findroid-tv-release.sh" "$TEST_ROOT/out"
     [[ "$output" == *"package or version mismatch"* ]]
-    make_fake_tools dev.jdtech.jellyfin.atv 1.1.0-atv.1 99
+    make_fake_tools dev.jdtech.jellyfin.atv 1.1.0-atv.2 99
     run "$REPO_ROOT/scripts/release/verify-findroid-tv-release.sh" "$TEST_ROOT/out"
     [[ "$output" == *"package or version mismatch"* ]]
 }
 
 @test "failed verification preserves supplied manifests" {
     make_fake_tools wrong.package
-    for abi in armeabi-v7a arm64-v8a x86 x86_64 universal; do touch "$TEST_ROOT/out/findroid-tv-1.1.0-atv.1-$abi.apk"; done
+    for abi in armeabi-v7a arm64-v8a x86 x86_64 universal; do touch "$TEST_ROOT/out/findroid-tv-1.1.0-atv.2-$abi.apk"; done
     echo stale >"$TEST_ROOT/out/SHA256SUMS"
     echo stale >"$TEST_ROOT/out/CERTIFICATE_SHA256"
     run "$REPO_ROOT/scripts/release/verify-findroid-tv-release.sh" "$TEST_ROOT/out"
@@ -299,7 +299,7 @@ EOF
 
 @test "verification writes stable artifact-only checksums" {
     make_fake_tools
-    for abi in armeabi-v7a arm64-v8a x86 x86_64 universal; do printf '%s' "$abi" >"$TEST_ROOT/out/findroid-tv-1.1.0-atv.1-$abi.apk"; done
+    for abi in armeabi-v7a arm64-v8a x86 x86_64 universal; do printf '%s' "$abi" >"$TEST_ROOT/out/findroid-tv-1.1.0-atv.2-$abi.apk"; done
     run "$REPO_ROOT/scripts/release/verify-findroid-tv-release.sh" --write-manifests "$TEST_ROOT/out"
     [ "$status" -eq 0 ]
     first=$(cat "$TEST_ROOT/out/SHA256SUMS")
@@ -314,7 +314,7 @@ EOF
 seed_downloaded_assets() {
     make_fake_tools
     for abi in armeabi-v7a arm64-v8a x86 x86_64 universal; do
-        printf '%s' "$abi" >"$TEST_ROOT/out/findroid-tv-1.1.0-atv.1-$abi.apk"
+        printf '%s' "$abi" >"$TEST_ROOT/out/findroid-tv-1.1.0-atv.2-$abi.apk"
     done
     (cd "$TEST_ROOT/out" && LC_ALL=C sha256sum findroid-tv-*.apk >SHA256SUMS)
     printf 'AA:BB\n' >"$TEST_ROOT/out/CERTIFICATE_SHA256"
@@ -323,7 +323,7 @@ seed_downloaded_assets() {
 @test "download verification rejects changed APK bytes and preserves the original manifest" {
     seed_downloaded_assets
     cp "$TEST_ROOT/out/SHA256SUMS" "$TEST_ROOT/original-checksums"
-    printf changed >>"$TEST_ROOT/out/findroid-tv-1.1.0-atv.1-x86.apk"
+    printf changed >>"$TEST_ROOT/out/findroid-tv-1.1.0-atv.2-x86.apk"
     run "$REPO_ROOT/scripts/release/verify-findroid-tv-release.sh" "$TEST_ROOT/out"
     [ "$status" -ne 0 ]
     [[ "$output" == *"checksum manifest mismatch"* ]]
