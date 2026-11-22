@@ -5,10 +5,12 @@ on:
     paths:
       - '**.kt'
       - '**.kts'
+      - 'gradle/libs.versions.toml'
   pull_request:
     paths:
       - '**.kt'
       - '**.kts'
+      - 'gradle/libs.versions.toml'
 
 jobs:
   lint:
