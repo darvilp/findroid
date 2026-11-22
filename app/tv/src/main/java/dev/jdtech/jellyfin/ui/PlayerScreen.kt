@@ -5,6 +5,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -34,6 +35,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.zIndex
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -50,9 +52,11 @@ import androidx.tv.material3.ButtonDefaults
 import androidx.tv.material3.Glow
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
+import androidx.tv.material3.Surface
 import dev.jdtech.jellyfin.core.R
 import dev.jdtech.jellyfin.models.FindroidSegment
 import dev.jdtech.jellyfin.models.InitialTrackSelection
+import dev.jdtech.jellyfin.player.local.R as PlayerR
 import dev.jdtech.jellyfin.player.local.domain.ChapterNavigationDirection
 import dev.jdtech.jellyfin.player.local.domain.ChapterNavigationState
 import dev.jdtech.jellyfin.player.local.domain.PlaybackDetailsTarget
@@ -379,6 +383,7 @@ fun PlayerScreen(
                             itemKind = itemKind,
                             startFromBeginning = startFromBeginning,
                             initialTrackSelection = initialTrackSelection,
+                            showStartupErrorToast = false,
                         )
                         playerView.setBackgroundColor(
                             playerViewContext.resources.getColor(
@@ -490,6 +495,16 @@ fun PlayerScreen(
         }
     }
 
+    if (uiState.playbackFailed) {
+        LaunchedEffect(Unit) {
+            selectedTrackType = null
+            synchronizationKind = null
+            videoPlayerState.hideControls()
+        }
+        PlaybackErrorDialog(onRetry = viewModel::retryPlayback, onBack = navigateBack)
+        return
+    }
+
     selectedTrackType?.let { trackType ->
         val tracks =
             if (trackType == C.TRACK_TYPE_AUDIO) uiState.audioTracks else uiState.subtitleTracks
@@ -526,6 +541,33 @@ fun PlayerScreen(
                 onUseCurrentAsDefault = { viewModel.useCurrentSynchronizationAsDefault(it) },
                 onDismiss = closeSynchronizationDialog,
             )
+        }
+    }
+}
+
+@Composable
+private fun PlaybackErrorDialog(onRetry: () -> Unit, onBack: () -> Unit) {
+    Dialog(onDismissRequest = onBack) {
+        val retryFocus = remember { FocusRequester() }
+        LaunchedEffect(Unit) { retryFocus.requestFocus() }
+        Surface(shape = MaterialTheme.shapes.medium) {
+            Column(
+                modifier = Modifier.padding(MaterialTheme.spacings.large),
+                verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.default),
+            ) {
+                Text(
+                    stringResource(PlayerR.string.playback_error),
+                    style = MaterialTheme.typography.titleLarge,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.default)) {
+                    Button(onClick = onRetry, modifier = Modifier.focusRequester(retryFocus)) {
+                        Text(stringResource(R.string.retry))
+                    }
+                    Button(onClick = onBack) {
+                        Text(stringResource(dev.jdtech.jellyfin.R.string.playback_back))
+                    }
+                }
+            }
         }
     }
 }
