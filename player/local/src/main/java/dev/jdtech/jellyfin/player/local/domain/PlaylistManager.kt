@@ -183,13 +183,16 @@ class PlaylistManager @Inject internal constructor(private val repository: Jelly
             audioTracks.firstOrNull(Track::selected)?.let {
                 RuntimeTrackResolver.resolveSourceStream(it, streams, audioTracks)?.index
             } ?: item.defaultAudioStreamIndex
-        val selectedSubtitleIndex =
-            subtitleTracks.firstOrNull(Track::selected)?.let {
-                RuntimeTrackResolver.resolveSourceStream(it, streams, subtitleTracks)?.index
-            }
+        val selectedSubtitle = subtitleTracks.firstOrNull(Track::selected)
         val subtitleIndex =
             when {
-                selectedSubtitleIndex != null -> selectedSubtitleIndex
+                selectedSubtitle != null ->
+                    RuntimeTrackResolver.resolveSourceStream(
+                            selectedSubtitle,
+                            streams,
+                            subtitleTracks,
+                        )
+                        ?.index
                 subtitleTracks.isNotEmpty() -> InitialTrackSelection.SUBTITLE_OFF
                 else -> item.defaultSubtitleStreamIndex
             }

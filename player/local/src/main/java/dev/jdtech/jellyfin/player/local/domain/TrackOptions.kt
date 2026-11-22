@@ -5,7 +5,10 @@ import dev.jdtech.jellyfin.player.core.domain.models.Track
 import java.util.Locale
 
 /** Enumerate every format in every Media3 track group while retaining its raw identity. */
-fun Tracks.toTrackOptions(type: Int): List<Track> = groups.flatMapIndexed { groupIndex, group ->
+fun Tracks.toTrackOptions(
+    type: Int,
+    mpvExternalSubtitles: Map<String, Int?>? = null,
+): List<Track> = groups.flatMapIndexed { groupIndex, group ->
     if (group.type != type) {
         emptyList()
     } else {
@@ -24,6 +27,9 @@ fun Tracks.toTrackOptions(type: Int): List<Track> = groups.flatMapIndexed { grou
                 rawLanguage = format.language,
                 channelCount =
                     format.channelCount.takeIf { it != androidx.media3.common.Format.NO_VALUE },
+                isExternalSubtitle =
+                    mpvExternalSubtitles?.let { format.id?.let(it::containsKey) == true },
+                externalSubtitleStreamIndex = format.id?.let { mpvExternalSubtitles?.get(it) },
             )
         }
     }
