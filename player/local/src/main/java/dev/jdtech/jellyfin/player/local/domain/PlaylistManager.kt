@@ -16,8 +16,8 @@ import dev.jdtech.jellyfin.models.isAvailableForPlayback
 import dev.jdtech.jellyfin.player.core.domain.models.ExternalSubtitle
 import dev.jdtech.jellyfin.player.core.domain.models.PlayerChapter
 import dev.jdtech.jellyfin.player.core.domain.models.PlayerItem
-import dev.jdtech.jellyfin.player.core.domain.models.TrickplayInfo
 import dev.jdtech.jellyfin.player.core.domain.models.Track
+import dev.jdtech.jellyfin.player.core.domain.models.TrickplayInfo
 import dev.jdtech.jellyfin.repository.JellyfinRepository
 import java.util.UUID
 import javax.inject.Inject
@@ -254,7 +254,8 @@ class PlaylistManager @Inject internal constructor(private val repository: Jelly
     suspend fun rebuildPlayerItem(itemId: UUID): PlayerItem? {
         val item = items.firstOrNull { it.id == itemId } ?: return null
         return try {
-            item.toPlayerItem(
+            item
+                .toPlayerItem(
                     mediaSourceIndex = null,
                     playbackPosition = 0L,
                     requestedTrackSelection = null,
@@ -287,8 +288,7 @@ class PlaylistManager @Inject internal constructor(private val repository: Jelly
         }
         selectedTrack ?: return
         val streams = getMediaStreams(itemId)
-        val stream =
-            RuntimeTrackResolver.resolveSourceStream(selectedTrack, streams, runtimeTracks)
+        val stream = RuntimeTrackResolver.resolveSourceStream(selectedTrack, streams, runtimeTracks)
         if (stream == null) {
             when (trackType) {
                 C.TRACK_TYPE_AUDIO -> queueAudioFingerprint = null
@@ -347,10 +347,7 @@ class PlaylistManager @Inject internal constructor(private val repository: Jelly
                 PlaybackSourceResolver.resolve(mediaSources, candidateSelection)
             }
         val mediaSource = resolved.source
-        if (
-            requestedTrackSelection == null &&
-                selectionVersion != queueTrackSelectionVersion
-        ) {
+        if (requestedTrackSelection == null && selectionVersion != queueTrackSelectionVersion) {
             return toPlayerItem(mediaSourceIndex, playbackPosition, requestedTrackSelection = null)
         }
         if (candidateSelection != null && resolved.initialTrackSelection == null) {
@@ -364,9 +361,7 @@ class PlaylistManager @Inject internal constructor(private val repository: Jelly
         mediaStreamsByItem[id] = mediaSource.mediaStreams
         mediaSource.mediaStreams
             .filter {
-                it.isExternal &&
-                    it.type == MediaStreamType.SUBTITLE &&
-                    it.path.isNullOrBlank()
+                it.isExternal && it.type == MediaStreamType.SUBTITLE && it.path.isNullOrBlank()
             }
             .forEach {
                 Timber.d(
@@ -438,21 +433,20 @@ class PlaylistManager @Inject internal constructor(private val repository: Jelly
 
     private fun resolveQueueSelection(
         itemId: UUID,
-        sources: List<dev.jdtech.jellyfin.models.FindroidSource>
+        sources: List<dev.jdtech.jellyfin.models.FindroidSource>,
     ): InitialTrackSelection? {
         val source = sources.firstOrNull { it.type == FindroidSourceType.REMOTE } ?: return null
-        val audioIndex =
-            queueAudioFingerprint?.let {
-                QueueTrackSelectionResolver.resolve(it, source.mediaStreams).also { resolvedIndex ->
-                    if (resolvedIndex == null) {
-                        Timber.d(
-                            "No queue audio match item=%s source=%s",
-                            itemId,
-                            source.id,
-                        )
-                    }
+        val audioIndex = queueAudioFingerprint?.let {
+            QueueTrackSelectionResolver.resolve(it, source.mediaStreams).also { resolvedIndex ->
+                if (resolvedIndex == null) {
+                    Timber.d(
+                        "No queue audio match item=%s source=%s",
+                        itemId,
+                        source.id,
+                    )
                 }
             }
+        }
         val subtitleIndex =
             when (val memory = queueSubtitleMemory) {
                 QueueSubtitleMemory.Off -> InitialTrackSelection.SUBTITLE_OFF
@@ -491,5 +485,5 @@ private sealed interface QueueSubtitleMemory {
 }
 
 internal fun availablePlaylistEpisodes(
-    episodes: List<FindroidEpisode>
+    episodes: List<FindroidEpisode>,
 ): List<FindroidEpisode> = episodes.filter(FindroidEpisode::isAvailableForPlayback)

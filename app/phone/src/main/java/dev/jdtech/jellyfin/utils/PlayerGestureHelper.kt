@@ -367,7 +367,7 @@ class PlayerGestureHelper(
                         if (swipeGestureValueTrackerBrightness == -1f) {
                             val brightness = window.attributes.screenBrightness
                             Timber.d(
-                                "Brightness ${Settings.System.getFloat(activity.contentResolver, Settings.System.SCREEN_BRIGHTNESS)}"
+                                "Brightness ${Settings.System.getFloat(activity.contentResolver, Settings.System.SCREEN_BRIGHTNESS)}",
                             )
                             swipeGestureValueTrackerBrightness =
                                 when (brightness) {
@@ -381,7 +381,7 @@ class PlayerGestureHelper(
                         }
                         swipeGestureValueTrackerBrightness =
                             (swipeGestureValueTrackerBrightness + ratioChange).coerceIn(
-                                brightnessRange
+                                brightnessRange,
                             )
                         val lp = window.attributes
                         lp.screenBrightness = swipeGestureValueTrackerBrightness
@@ -518,7 +518,7 @@ class PlayerGestureHelper(
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             val insets =
                 playerView.rootWindowInsets.getInsetsIgnoringVisibility(
-                    WindowInsets.Type.systemGestures()
+                    WindowInsets.Type.systemGestures(),
                 )
 
             if (

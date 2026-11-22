@@ -38,7 +38,7 @@ class RuntimeTrackResolverTest {
                 jellyfinStreamIndex = 4,
                 jellyfinStreams = streams,
                 runtimeTracks = runtimeTracks,
-            )
+            ),
         )
     }
 

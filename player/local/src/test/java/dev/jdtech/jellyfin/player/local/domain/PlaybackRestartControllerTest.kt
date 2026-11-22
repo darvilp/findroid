@@ -10,7 +10,9 @@ class PlaybackRestartControllerTest {
     fun `restart is available only beyond one configured back seek`() {
         val controller = PlaybackRestartController()
 
-        assertFalse(controller.isAvailable(currentPositionMs = 5_000L, seekBackIncrementMs = 5_000L))
+        assertFalse(
+            controller.isAvailable(currentPositionMs = 5_000L, seekBackIncrementMs = 5_000L),
+        )
         assertTrue(controller.isAvailable(currentPositionMs = 5_001L, seekBackIncrementMs = 5_000L))
         assertFalse(controller.isAvailable(currentPositionMs = 0L, seekBackIncrementMs = -1L))
     }

@@ -68,7 +68,7 @@ internal class PlaybackSynchronizationSaveCoordinator(
                                 it,
                             )
                         },
-                    )
+                    ),
                 )
             }
         }

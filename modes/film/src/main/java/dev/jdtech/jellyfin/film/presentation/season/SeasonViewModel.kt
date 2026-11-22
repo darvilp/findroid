@@ -42,7 +42,7 @@ constructor(
                         season = season,
                         episodes = episodes,
                         playbackStart = playbackStartResolver.resolveSeason(seasonId, episodes),
-                    )
+                    ),
                 )
             } catch (e: CancellationException) {
                 throw e

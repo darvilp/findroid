@@ -43,8 +43,7 @@ internal fun playerFocusRequest(
 internal fun restoredPlayerControl(
     lastFocusedControl: PlayerControl?,
     availableControls: Set<PlayerControl>,
-): PlayerControl =
-    lastFocusedControl?.takeIf { it in availableControls } ?: PlayerControl.PlayPause
+): PlayerControl = lastFocusedControl?.takeIf { it in availableControls } ?: PlayerControl.PlayPause
 
 internal fun focusAfterSkipPromptRemoval(
     skipPromptWasFocused: Boolean,

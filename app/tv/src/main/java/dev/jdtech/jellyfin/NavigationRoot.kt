@@ -74,7 +74,8 @@ data class LibraryRoute(
 
 @ConsistentCopyVisibility
 @Serializable
-data class PlayerRoute private constructor(
+data class PlayerRoute
+private constructor(
     val itemId: String,
     val itemKind: String,
     val startFromBeginning: Boolean = false,
@@ -83,14 +84,13 @@ data class PlayerRoute private constructor(
     private val initialSubtitleStreamIndex: Int? = null,
 ) {
     val initialTrackSelection: InitialTrackSelection?
-        get() =
-            initialMediaSourceId?.let { mediaSourceId ->
-                InitialTrackSelection(
-                    mediaSourceId = mediaSourceId,
-                    audioStreamIndex = initialAudioStreamIndex,
-                    subtitleStreamIndex = initialSubtitleStreamIndex,
-                )
-            }
+        get() = initialMediaSourceId?.let { mediaSourceId ->
+            InitialTrackSelection(
+                mediaSourceId = mediaSourceId,
+                audioStreamIndex = initialAudioStreamIndex,
+                subtitleStreamIndex = initialSubtitleStreamIndex,
+            )
+        }
 
     companion object {
         fun movie(
@@ -235,7 +235,7 @@ fun NavigationRoot(
                             libraryId = libraryId.toString(),
                             libraryName = libraryName,
                             libraryType = libraryType,
-                        )
+                        ),
                     )
                 },
                 navigateToMovie = { itemId ->
@@ -259,7 +259,7 @@ fun NavigationRoot(
                             libraryId = libraryId.toString(),
                             libraryName = libraryName,
                             libraryType = libraryType,
-                        )
+                        ),
                     )
                 },
                 navigateToMovie = { itemId ->

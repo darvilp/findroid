@@ -35,7 +35,9 @@ data class MpvSynchronizationDefaults(val audioMs: Long, val subtitleMs: Long) {
 object MpvSynchronizationValue {
     fun formatMpvSeconds(valueMs: Long): String {
         val negative = valueMs < 0
-        val magnitude = if (valueMs == Long.MIN_VALUE) BigDecimal(valueMs).abs() else BigDecimal(kotlin.math.abs(valueMs))
+        val magnitude =
+            if (valueMs == Long.MIN_VALUE) BigDecimal(valueMs).abs()
+            else BigDecimal(kotlin.math.abs(valueMs))
         val seconds = magnitude.movePointLeft(3).setScale(3)
         return (if (negative) "-" else "") + seconds.toPlainString()
     }
@@ -52,21 +54,21 @@ object MpvSynchronizationValue {
     }
 
     private val MAGNITUDE_PATTERN = Regex("^(?:0|[1-9]\\d*)(?:\\.\\d{1,3})?$")
+
     fun parseDirectedMagnitudeSeconds(value: String, negative: Boolean): Long? {
         if (!MAGNITUDE_PATTERN.matches(value)) return null
         val milliseconds =
             runCatching { BigDecimal(value).movePointRight(3).toBigIntegerExact() }.getOrNull()
                 ?: return null
         return runCatching {
-                (if (negative && milliseconds != BigInteger.ZERO) milliseconds.negate()
-                    else milliseconds)
-                    .toLongExact()
-            }
+            (if (negative && milliseconds != BigInteger.ZERO) milliseconds.negate()
+                else milliseconds)
+                .toLongExact()
+        }
             .getOrNull()
     }
 
-    private fun magnitudeMilliseconds(valueMs: Long): BigInteger =
-        BigInteger.valueOf(valueMs).abs()
+    private fun magnitudeMilliseconds(valueMs: Long): BigInteger = BigInteger.valueOf(valueMs).abs()
 
     fun formatMpvMagnitudeSeconds(valueMs: Long): String =
         BigDecimal(magnitudeMilliseconds(valueMs)).movePointLeft(3).setScale(3).toPlainString()
@@ -100,8 +102,7 @@ class MpvSynchronizationState(audioBaselineMs: Long = 0L, subtitleBaselineMs: Lo
     }
 
     fun setEffective(kind: MpvSynchronizationKind, valueMs: Long) {
-        temporary[kind] =
-            BigInteger.valueOf(valueMs).subtract(BigInteger.valueOf(baseline(kind)))
+        temporary[kind] = BigInteger.valueOf(valueMs).subtract(BigInteger.valueOf(baseline(kind)))
     }
 
     fun reset(kind: MpvSynchronizationKind) {

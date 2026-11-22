@@ -3,8 +3,8 @@ package dev.jdtech.jellyfin.presentation.film
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dev.jdtech.jellyfin.models.InitialTrackSelection
 import dev.jdtech.jellyfin.models.FindroidEpisode
+import dev.jdtech.jellyfin.models.InitialTrackSelection
 import dev.jdtech.jellyfin.models.PlaybackTrackChoices
 import dev.jdtech.jellyfin.models.playbackTrackChoices
 import dev.jdtech.jellyfin.repository.JellyfinRepository
@@ -41,7 +41,11 @@ data class PreplayTrackSelectionState(
             referenceItemId = newChoices.itemId,
             choices = newChoices,
             selectedAudioStreamIndex =
-                rematchSelection(selectedAudioStreamIndex, choices?.audio.orEmpty(), newChoices.audio),
+                rematchSelection(
+                    selectedAudioStreamIndex,
+                    choices?.audio.orEmpty(),
+                    newChoices.audio,
+                ),
             selectedSubtitleStreamIndex =
                 if (selectedSubtitleStreamIndex == InitialTrackSelection.SUBTITLE_OFF) {
                     InitialTrackSelection.SUBTITLE_OFF
@@ -101,7 +105,10 @@ constructor(private val repository: JellyfinRepository) : ViewModel() {
         loadJob?.cancel()
         loadJob = viewModelScope.launch {
             try {
-                val choices = repository.getMediaSources(referenceItemId).playbackTrackChoices(referenceItemId)
+                val choices =
+                    repository
+                        .getMediaSources(referenceItemId)
+                        .playbackTrackChoices(referenceItemId)
                 if (_state.value.referenceItemId != referenceItemId) return@launch
                 _state.update {
                     if (choices == null) {

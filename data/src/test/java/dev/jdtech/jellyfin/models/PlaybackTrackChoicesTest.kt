@@ -28,9 +28,10 @@ class PlaybackTrackChoicesTest {
             )
 
         val choices =
-            listOf(source).playbackTrackChoices(
-                itemId = UUID.fromString("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
-            )
+            listOf(source)
+                .playbackTrackChoices(
+                    itemId = UUID.fromString("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"),
+                )
 
         assertEquals("source-1", choices?.mediaSourceId)
         assertEquals(listOf(2, 7), choices?.audio?.map { it.streamIndex })

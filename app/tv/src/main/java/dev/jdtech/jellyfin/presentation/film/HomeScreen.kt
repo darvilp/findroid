@@ -14,8 +14,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -116,7 +116,7 @@ private fun HomeScreenLayout(state: HomeState, onAction: (HomeAction) -> Unit) {
                                     Modifier.focusRequester(fallbackFocusRequester)
                                 } else {
                                     Modifier
-                                }
+                                },
                             ),
                 )
             }
@@ -130,9 +130,7 @@ private fun HomeScreenLayout(state: HomeState, onAction: (HomeAction) -> Unit) {
                     modifier = Modifier.animateItem(),
                     row = HomeRow.Resume,
                     fallbackFocusRequester =
-                        fallbackFocusRequester.takeIf {
-                            fallbackTarget?.row == HomeRow.Resume
-                        },
+                        fallbackFocusRequester.takeIf { fallbackTarget?.row == HomeRow.Resume },
                 )
             }
         }
@@ -145,9 +143,7 @@ private fun HomeScreenLayout(state: HomeState, onAction: (HomeAction) -> Unit) {
                     modifier = Modifier.animateItem(),
                     row = HomeRow.NextUp,
                     fallbackFocusRequester =
-                        fallbackFocusRequester.takeIf {
-                            fallbackTarget?.row == HomeRow.NextUp
-                        },
+                        fallbackFocusRequester.takeIf { fallbackTarget?.row == HomeRow.NextUp },
                 )
             }
         }
@@ -183,11 +179,10 @@ internal fun homeFallbackTarget(state: HomeState): HomeFallbackTarget? =
     }
 
 internal fun shouldRestoreHomeFocusAfterPlayedAction(itemId: UUID, state: HomeState): Boolean {
-    val playbackItemIds =
-        buildSet {
-            state.resumeSection?.homeSection?.items?.mapTo(this) { it.id }
-            state.nextUpSection?.homeSection?.items?.mapTo(this) { it.id }
-        }
+    val playbackItemIds = buildSet {
+        state.resumeSection?.homeSection?.items?.mapTo(this) { it.id }
+        state.nextUpSection?.homeSection?.items?.mapTo(this) { it.id }
+    }
     val hasFocusableContent =
         state.suggestionsSection?.items?.isNotEmpty() == true ||
             state.resumeSection?.homeSection?.items?.isNotEmpty() == true ||

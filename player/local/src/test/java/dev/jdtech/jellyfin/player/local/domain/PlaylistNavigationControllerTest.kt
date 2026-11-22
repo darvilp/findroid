@@ -21,7 +21,7 @@ class PlaylistNavigationControllerTest {
                             RecordingPlaylistNavigationTarget(
                                 hasPreviousMediaItem = hasPrevious,
                                 hasNextMediaItem = hasNext,
-                            )
+                            ),
                         )
                 }
 
@@ -46,7 +46,7 @@ class PlaylistNavigationControllerTest {
                         hasNextMediaItem = true,
                         previousCommandAvailable = true,
                         nextCommandAvailable = false,
-                    )
+                    ),
                 )
 
         assertEquals(
@@ -94,11 +94,10 @@ class PlaylistNavigationControllerTest {
             )
 
         assertFalse(
-            PlaylistNavigationController()
-                .navigate(PlaylistNavigationDirection.Previous, target)
+            PlaylistNavigationController().navigate(PlaylistNavigationDirection.Previous, target),
         )
         assertFalse(
-            PlaylistNavigationController().navigate(PlaylistNavigationDirection.Next, target)
+            PlaylistNavigationController().navigate(PlaylistNavigationDirection.Next, target),
         )
         assertEquals(emptyList<String>(), target.commands)
     }

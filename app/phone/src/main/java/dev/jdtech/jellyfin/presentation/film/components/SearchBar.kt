@@ -100,7 +100,9 @@ fun FilmSearchBar(
     SearchBar(
         inputField = {
             SearchBarDefaults.InputField(
-                query = if (state.query.isEmpty() && savedQuery.isNotEmpty()) savedQuery else state.query,
+                query =
+                    if (state.query.isEmpty() && savedQuery.isNotEmpty()) savedQuery
+                    else state.query,
                 onQueryChange = { updateQuery(it) },
                 onSearch = { onExpand(true) },
                 expanded = expanded,

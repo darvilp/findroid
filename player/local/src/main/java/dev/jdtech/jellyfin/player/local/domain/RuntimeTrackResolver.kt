@@ -13,7 +13,9 @@ object RuntimeTrackResolver {
         runtimeTracks: List<Track>,
     ): Track? {
         val stream = jellyfinStreams.singleOrNull { it.index == jellyfinStreamIndex } ?: return null
-        val supported = runtimeTracks.filter { it.supported && it.type == stream.runtimeTrackType() }
+        val supported = runtimeTracks.filter {
+            it.supported && it.type == stream.runtimeTrackType()
+        }
         if (stream.isExternal) {
             return supported.singleOrNull { it.id == jellyfinStreamIndex.toString() }
         }
@@ -35,7 +37,7 @@ object RuntimeTrackResolver {
                     .thenByDescending { it.exactTitle }
                     .thenByDescending { it.sameOrdinal }
                     .thenBy { it.track.groupIndex }
-                    .thenBy { it.track.trackIndex }
+                    .thenBy { it.track.trackIndex },
             )
             .firstOrNull()
             ?.track
@@ -49,15 +51,20 @@ object RuntimeTrackResolver {
         jellyfinStreams
             .filter { it.index != null && it.runtimeTrackType() == runtimeTrack.type }
             .firstOrNull { stream ->
-                resolve(requireNotNull(stream.index), jellyfinStreams, runtimeTracks)?.sameIdentity(
-                    runtimeTrack
-                ) == true
+                resolve(requireNotNull(stream.index), jellyfinStreams, runtimeTracks)
+                    ?.sameIdentity(
+                        runtimeTrack,
+                    ) == true
             }
 
     private fun Track.scoreAgainst(fingerprint: QueueTrackFingerprint, ordinal: Int): Int {
         var score = 0
         val language = rawLanguage.normalizedLanguage()
-        if (language != null && language != "und" && language == fingerprint.language.normalizedLanguage()) {
+        if (
+            language != null &&
+                language != "und" &&
+                language == fingerprint.language.normalizedLanguage()
+        ) {
             score += 2
         }
         if (label.normalizedRuntimeMetadata() == fingerprint.displayTitle) score += 2
@@ -90,7 +97,8 @@ private fun String?.normalizedRuntimeMetadata(): String? =
 private fun String?.normalizedCodec(): String? =
     normalizedRuntimeMetadata()?.substringAfterLast('/')?.let { codec ->
         when (codec) {
-            "x-ssa", "ssa" -> "ass"
+            "x-ssa",
+            "ssa" -> "ass"
             else -> codec
         }
     }

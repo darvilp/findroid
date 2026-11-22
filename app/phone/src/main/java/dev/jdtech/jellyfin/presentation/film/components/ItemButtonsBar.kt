@@ -84,7 +84,7 @@ fun ItemButtonsBar(
         ) {
             if (
                 !windowSizeClass.isWidthAtLeastBreakpoint(
-                    WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND
+                    WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
                 )
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.small)) {
@@ -108,7 +108,7 @@ fun ItemButtonsBar(
             Row(horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.small)) {
                 if (
                     windowSizeClass.isWidthAtLeastBreakpoint(
-                        WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND
+                        WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
                     )
                 ) {
                     PlayButton(
@@ -176,7 +176,7 @@ fun ItemButtonsBar(
                                     selectedStorageIndex = 0
                                     onDownloadClick(selectedStorageIndex)
                                 }
-                            }
+                            },
                         ) {
                             Icon(
                                 painter = painterResource(CoreR.drawable.ic_download),

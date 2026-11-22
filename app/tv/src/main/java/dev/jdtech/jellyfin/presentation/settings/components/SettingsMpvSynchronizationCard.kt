@@ -3,7 +3,6 @@ package dev.jdtech.jellyfin.presentation.settings.components
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -19,8 +18,8 @@ import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import dev.jdtech.jellyfin.presentation.settings.PersistentSynchronizationEditPolicy
 import dev.jdtech.jellyfin.presentation.theme.spacings
-import dev.jdtech.jellyfin.settings.presentation.models.PreferenceMpvSynchronization
 import dev.jdtech.jellyfin.settings.R as SettingsR
+import dev.jdtech.jellyfin.settings.presentation.models.PreferenceMpvSynchronization
 import dev.jdtech.jellyfin.ui.dialogs.SynchronizationValueEditor
 
 @Composable
@@ -38,7 +37,8 @@ fun SettingsMpvSynchronizationCard(
         }
     }
     if (showDialog) {
-        val policy = remember(preference.valueMs) { PersistentSynchronizationEditPolicy(preference.valueMs) }
+        val policy =
+            remember(preference.valueMs) { PersistentSynchronizationEditPolicy(preference.valueMs) }
         var draftValueMs by remember(preference.valueMs) { mutableStateOf(preference.valueMs) }
         var editing by remember { mutableStateOf(false) }
         Dialog(onDismissRequest = { showDialog = false }) {
@@ -48,15 +48,27 @@ fun SettingsMpvSynchronizationCard(
                     verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.default),
                 ) {
                     Text(stringResource(preference.nameStringResource))
-                    Row(horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.default)) {
+                    Row(
+                        horizontalArrangement =
+                            Arrangement.spacedBy(MaterialTheme.spacings.default),
+                    ) {
                         Button(onClick = { editing = true }) {
                             Text(stringResource(SettingsR.string.edit))
                         }
-                        Button(onClick = {
-                            onSave(policy.save())
-                            showDialog = false
-                        }) { Text(stringResource(SettingsR.string.save)) }
-                        Button(onClick = { policy.cancel(); showDialog = false }) {
+                        Button(
+                            onClick = {
+                                onSave(policy.save())
+                                showDialog = false
+                            },
+                        ) {
+                            Text(stringResource(SettingsR.string.save))
+                        }
+                        Button(
+                            onClick = {
+                                policy.cancel()
+                                showDialog = false
+                            },
+                        ) {
                             Text(stringResource(SettingsR.string.cancel))
                         }
                     }

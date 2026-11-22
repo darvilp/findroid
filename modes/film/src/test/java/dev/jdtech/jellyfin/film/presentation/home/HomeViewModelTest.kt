@@ -20,10 +20,7 @@ class HomeViewModelTest {
             HomeViewModel(
                 dataSource =
                     object : TestHomeDataSource() {
-                        override suspend fun loadServer() =
-                            null.also {
-                                events += "load"
-                            }
+                        override suspend fun loadServer() = null.also { events += "load" }
 
                         override suspend fun markAsPlayed(itemId: UUID) {
                             events += "mark:$itemId"

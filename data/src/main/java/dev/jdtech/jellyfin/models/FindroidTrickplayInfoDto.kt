@@ -13,7 +13,7 @@ import androidx.room.PrimaryKey
                 parentColumns = arrayOf("id"),
                 childColumns = arrayOf("sourceId"),
                 onDelete = ForeignKey.CASCADE,
-            )
+            ),
         ],
 )
 data class FindroidTrickplayInfoDto(

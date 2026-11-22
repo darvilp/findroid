@@ -123,7 +123,7 @@ private fun ShowScreenLayout(state: ShowState, onAction: (ShowAction) -> Unit) {
                         Column(
                             modifier =
                                 Modifier.align(Alignment.BottomStart)
-                                    .padding(start = paddingStart, end = paddingEnd)
+                                    .padding(start = paddingStart, end = paddingEnd),
                         ) {
                             Text(
                                 text = show.name,
@@ -207,9 +207,7 @@ private fun ShowScreenLayout(state: ShowState, onAction: (ShowAction) -> Unit) {
                         canPlay = state.playbackStart != null,
                         playbackStartPositionTicks =
                             state.playbackStart
-                                ?.takeUnless { playbackStart ->
-                                    playbackStart.startFromBeginning
-                                }
+                                ?.takeUnless { playbackStart -> playbackStart.startFromBeginning }
                                 ?.episode
                                 ?.playbackPositionTicks ?: 0L,
                     )
@@ -232,7 +230,7 @@ private fun ShowScreenLayout(state: ShowState, onAction: (ShowAction) -> Unit) {
                             modifier =
                                 Modifier.widthIn(max = 420.dp)
                                     .clip(MaterialTheme.shapes.small)
-                                    .clickable { onAction(ShowAction.NavigateToItem(nextUp)) }
+                                    .clickable { onAction(ShowAction.NavigateToItem(nextUp)) },
                         ) {
                             ItemPoster(
                                 item = nextUp,
@@ -265,7 +263,8 @@ private fun ShowScreenLayout(state: ShowState, onAction: (ShowAction) -> Unit) {
                     }
                     LazyRow(
                         contentPadding = PaddingValues(start = paddingStart, end = paddingEnd),
-                        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.default),
+                        horizontalArrangement =
+                            Arrangement.spacedBy(MaterialTheme.spacings.default),
                     ) {
                         items(items = state.seasons, key = { item -> item.id }) { season ->
                             ItemCard(

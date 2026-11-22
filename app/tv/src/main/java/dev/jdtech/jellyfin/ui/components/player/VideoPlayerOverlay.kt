@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -44,9 +43,9 @@ fun VideoPlayerOverlay(
                                 listOf(
                                     Color.Black.copy(alpha = 0.4f),
                                     Color.Black.copy(alpha = 0.8f),
-                                )
-                            )
-                        )
+                                ),
+                            ),
+                        ),
             )
 
             Column(Modifier.padding(MaterialTheme.spacings.default * 2)) { controls() }

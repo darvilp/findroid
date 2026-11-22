@@ -1,11 +1,11 @@
 package dev.jdtech.jellyfin.presentation.film
 
-import dev.jdtech.jellyfin.film.presentation.movie.MovieAction
+import dev.jdtech.jellyfin.core.presentation.dummy.dummyEpisode
 import dev.jdtech.jellyfin.film.presentation.PlaybackStart
+import dev.jdtech.jellyfin.film.presentation.movie.MovieAction
 import dev.jdtech.jellyfin.film.presentation.season.SeasonState
 import dev.jdtech.jellyfin.film.presentation.show.ShowAction
 import dev.jdtech.jellyfin.film.presentation.show.ShowState
-import dev.jdtech.jellyfin.core.presentation.dummy.dummyEpisode
 import dev.jdtech.jellyfin.models.InitialTrackSelection
 import java.util.UUID
 import org.junit.Assert.assertEquals
@@ -22,7 +22,7 @@ class DetailsPlaybackTest {
                     PlaybackStart(
                         episode = dummyEpisode.copy(playbackPositionTicks = 600_000_000L),
                         startFromBeginning = false,
-                    )
+                    ),
             )
 
         assertTrue(hasMeaningfulPlaybackStart(state))
@@ -36,7 +36,7 @@ class DetailsPlaybackTest {
                     PlaybackStart(
                         episode = dummyEpisode.copy(playbackPositionTicks = 599_999_999L),
                         startFromBeginning = false,
-                    )
+                    ),
             )
 
         assertFalse(hasMeaningfulPlaybackStart(state))
@@ -51,7 +51,7 @@ class DetailsPlaybackTest {
                 moviePlaybackRoute(
                     movieId = movieId,
                     action = MovieAction.Play(startFromBeginning = true),
-                )
+                ),
             )
 
         assertEquals(movieId.toString(), route.itemId)
@@ -70,7 +70,7 @@ class DetailsPlaybackTest {
                 showPlaybackRoute(
                     state = state,
                     action = ShowAction.Play(startFromBeginning = true),
-                )
+                ),
             )
 
         assertEquals(episode.id.toString(), route.itemId)
@@ -86,7 +86,7 @@ class DetailsPlaybackTest {
                     PlaybackStart(
                         episode = dummyEpisode.copy(playbackPositionTicks = 900_000_000L),
                         startFromBeginning = true,
-                    )
+                    ),
             )
 
         assertFalse(hasMeaningfulPlaybackStart(state))
@@ -110,7 +110,7 @@ class DetailsPlaybackTest {
                     state = state,
                     action = ShowAction.Play(),
                     initialTrackSelection = selection,
-                )
+                ),
             )
 
         assertEquals(selection, route.initialTrackSelection)

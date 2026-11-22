@@ -26,8 +26,9 @@ internal data class SynchronizationEditorState(
         val magnitude = BigInteger.valueOf(valueMs).abs()
         val place = checkNotNull(selectedField.placeMs)
         val edited =
-            (magnitude + BigInteger.valueOf(if (increase) place else -place))
-                .coerceAtLeast(BigInteger.ZERO)
+            (magnitude + BigInteger.valueOf(if (increase) place else -place)).coerceAtLeast(
+                BigInteger.ZERO,
+            )
         val signed = if (valueMs < 0L) edited.negate() else edited
         return copy(valueMs = runCatching { signed.toLongExact() }.getOrElse { valueMs })
     }
@@ -37,7 +38,14 @@ internal data class SynchronizationEditorState(
     fun decrement(): SynchronizationEditorState = edit(false)
 
     fun move(delta: Int): SynchronizationEditorState =
-        copy(selectedField = SynchronizationField.entries[(selectedField.ordinal + delta).coerceIn(0, SynchronizationField.entries.lastIndex)])
+        copy(
+            selectedField =
+                SynchronizationField.entries[
+                        (selectedField.ordinal + delta).coerceIn(
+                            0,
+                            SynchronizationField.entries.lastIndex,
+                        )],
+        )
 
     companion object {
         fun from(valueMs: Long) = SynchronizationEditorState(valueMs)
@@ -143,7 +151,9 @@ internal fun initialSynchronizationFocusTarget(
         origin
     }
 
-internal class SynchronizationKeyGuard(private val openingKeyCode: Int? = KeyEvent.KEYCODE_DPAD_CENTER) {
+internal class SynchronizationKeyGuard(
+    private val openingKeyCode: Int? = KeyEvent.KEYCODE_DPAD_CENTER,
+) {
     private var openingReleasePending = openingKeyCode != null
 
     fun consume(keyCode: Int, isDown: Boolean): Boolean {
@@ -171,6 +181,7 @@ internal class SynchronizationKeyGuard(private val openingKeyCode: Int? = KeyEve
 internal class SynchronizationDialogPolicy(initialKind: MpvSynchronizationKind) {
     var initialFocusKind: MpvSynchronizationKind = initialKind
         private set
+
     private var focusReturn: MpvSynchronizationKind? = null
     private var editingKind: MpvSynchronizationKind? = null
 
@@ -186,7 +197,10 @@ internal class SynchronizationDialogPolicy(initialKind: MpvSynchronizationKind) 
     fun takeFocusReturn(): MpvSynchronizationKind? = focusReturn.also { focusReturn = null }
 }
 
-internal fun trackDialogShowsSynchronization(trackType: Int, synchronizationAvailable: Boolean): Boolean =
+internal fun trackDialogShowsSynchronization(
+    trackType: Int,
+    synchronizationAvailable: Boolean,
+): Boolean =
     synchronizationAvailable &&
         (trackType == androidx.media3.common.C.TRACK_TYPE_AUDIO ||
             trackType == androidx.media3.common.C.TRACK_TYPE_TEXT)

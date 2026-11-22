@@ -25,18 +25,17 @@ object MpvSynchronizationConfigCodec {
         if (preserved.isNotEmpty() && !preserved.endsWith("\n") && !preserved.endsWith("\r")) {
             preserved += lineEnding
         }
-        val block =
-            buildString {
-                append(BEGIN_MARKER).append(lineEnding)
-                append("[default]").append(lineEnding)
-                append("audio-delay=")
-                    .append(MpvSynchronizationValue.formatMpvSeconds(defaults.audioMs))
-                    .append(lineEnding)
-                append("sub-delay=")
-                    .append(MpvSynchronizationValue.formatMpvSeconds(defaults.subtitleMs))
-                    .append(lineEnding)
-                append(END_MARKER).append(lineEnding)
-            }
+        val block = buildString {
+            append(BEGIN_MARKER).append(lineEnding)
+            append("[default]").append(lineEnding)
+            append("audio-delay=")
+                .append(MpvSynchronizationValue.formatMpvSeconds(defaults.audioMs))
+                .append(lineEnding)
+            append("sub-delay=")
+                .append(MpvSynchronizationValue.formatMpvSeconds(defaults.subtitleMs))
+                .append(lineEnding)
+            append(END_MARKER).append(lineEnding)
+        }
         preserved + block
     }
 
@@ -75,7 +74,7 @@ object MpvSynchronizationConfigCodec {
 
     private val COMPLETE_BLOCK =
         Regex(
-            "(?ms)^${Regex.escape(BEGIN_MARKER)}\\r?\\n.*?^${Regex.escape(END_MARKER)}(?:\\r?\\n)?"
+            "(?ms)^${Regex.escape(BEGIN_MARKER)}\\r?\\n.*?^${Regex.escape(END_MARKER)}(?:\\r?\\n)?",
         )
     private val SECTION = Regex("^\\[([^]]+)]$")
     private val ASSIGNMENT = Regex("^(audio-delay|sub-delay)\\s*=\\s*(\\S+)\\s*$")

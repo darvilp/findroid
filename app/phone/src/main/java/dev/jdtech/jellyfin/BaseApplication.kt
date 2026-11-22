@@ -79,13 +79,13 @@ class BaseApplication : Application(), Configuration.Provider, SingletonImageLoa
             }
             .diskCachePolicy(
                 if (appPreferences.getValue(appPreferences.imageCache)) CachePolicy.ENABLED
-                else CachePolicy.DISABLED
+                else CachePolicy.DISABLED,
             )
             .diskCache {
                 DiskCache.Builder()
                     .directory(context.cacheDir.resolve("image_cache").toOkioPath())
                     .maxSizeBytes(
-                        appPreferences.getValue(appPreferences.imageCacheSize) * 1024L * 1024
+                        appPreferences.getValue(appPreferences.imageCacheSize) * 1024L * 1024,
                     )
                     .build()
             }
@@ -94,32 +94,26 @@ class BaseApplication : Application(), Configuration.Provider, SingletonImageLoa
     }
 
     private fun scheduleUserDataSync(workManager: WorkManager) {
-        val constraints = Constraints.Builder()
-            .setRequiredNetworkType(NetworkType.CONNECTED)
-            .build()
+        val constraints =
+            Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
 
         val syncWorkRequest =
-            OneTimeWorkRequestBuilder<SyncWorker>()
-                .setConstraints(constraints)
-                .build()
+            OneTimeWorkRequestBuilder<SyncWorker>().setConstraints(constraints).build()
 
-        workManager
-            .enqueueUniqueWork(
-                uniqueWorkName = "syncUserData",
-                existingWorkPolicy = ExistingWorkPolicy.KEEP,
-                request = syncWorkRequest
-            )
+        workManager.enqueueUniqueWork(
+            uniqueWorkName = "syncUserData",
+            existingWorkPolicy = ExistingWorkPolicy.KEEP,
+            request = syncWorkRequest,
+        )
     }
 
     private fun scheduleMpvCleanup(workManager: WorkManager) {
-        val cleanupRequest =
-            OneTimeWorkRequestBuilder<MpvCleanupWorker>()
-                .build()
+        val cleanupRequest = OneTimeWorkRequestBuilder<MpvCleanupWorker>().build()
 
         workManager.enqueueUniqueWork(
             uniqueWorkName = "mpv_cleanup",
             existingWorkPolicy = ExistingWorkPolicy.KEEP,
-            request = cleanupRequest
+            request = cleanupRequest,
         )
     }
 }

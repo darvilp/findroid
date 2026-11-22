@@ -10,45 +10,52 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class MpvSynchronizationConfigStore internal constructor(
+class MpvSynchronizationConfigStore
+internal constructor(
     private val configStorage: MpvSynchronizationConfigStorage,
 ) {
     @Inject
-    constructor(application: Application) :
-        this(AtomicMpvSynchronizationConfigStorage(File(application.filesDir, "mpv/mpv.conf")))
+    constructor(
+        application: Application,
+    ) : this(AtomicMpvSynchronizationConfigStorage(File(application.filesDir, "mpv/mpv.conf")))
 
     @Synchronized
     fun readDefaults(): Result<MpvSynchronizationDefaults> {
-        val text =
-            runCatching { configStorage.readText() }
-                .getOrElse {
-                    return Result.failure(MpvSynchronizationConfigException.ReadFailed(it))
-                }
+        val text = runCatching {
+            configStorage.readText()
+        }
+            .getOrElse {
+                return Result.failure(MpvSynchronizationConfigException.ReadFailed(it))
+            }
         return MpvSynchronizationConfigCodec.readDefaults(text)
     }
 
     @Synchronized
     fun writeDefaults(defaults: MpvSynchronizationDefaults): Result<Unit> {
-        val current =
-            runCatching { configStorage.readText() }
-                .getOrElse {
-                    return Result.failure(MpvSynchronizationConfigException.ReadFailed(it))
-                }
+        val current = runCatching {
+            configStorage.readText()
+        }
+            .getOrElse {
+                return Result.failure(MpvSynchronizationConfigException.ReadFailed(it))
+            }
         val updated =
             MpvSynchronizationConfigCodec.writeDefaults(current, defaults).getOrElse {
                 return Result.failure(it)
             }
         return runCatching {
-                configStorage.writeText(updated)
-            }
+            configStorage.writeText(updated)
+        }
             .recoverCatching { throw MpvSynchronizationConfigException.WriteFailed(it) }
     }
 
     @Synchronized
     fun write(kind: MpvSynchronizationKind, valueMs: Long): Result<MpvSynchronizationDefaults> {
-        val updated = readDefaults().map { it.withValue(kind, valueMs) }.getOrElse {
-            return Result.failure(it)
-        }
+        val updated =
+            readDefaults()
+                .map { it.withValue(kind, valueMs) }
+                .getOrElse {
+                    return Result.failure(it)
+                }
         return writeDefaults(updated).map { updated }
     }
 }

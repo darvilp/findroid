@@ -80,7 +80,7 @@ class MpvSynchronizationConfigCodecTest {
                     malformed,
                     MpvSynchronizationDefaults(0L, 0L),
                 )
-                .isFailure
+                .isFailure,
         )
     }
 
@@ -115,7 +115,7 @@ class MpvSynchronizationConfigCodecTest {
         assertTrue(MpvSynchronizationConfigCodec.readDefaults("audio-delay=0.0005\n").isFailure)
         assertTrue(
             MpvSynchronizationConfigCodec.readDefaults("sub-delay=9223372036854775.808\n")
-                .isFailure
+                .isFailure,
         )
     }
 

@@ -49,8 +49,7 @@ internal class MpvSynchronizationConfigCoordinator(
         }
     }
 
-    fun read(): Deferred<MpvSynchronizationConfigOutcome> =
-        enqueue(OperationKey.Read, readDefaults)
+    fun read(): Deferred<MpvSynchronizationConfigOutcome> = enqueue(OperationKey.Read, readDefaults)
 
     fun write(
         kind: MpvSynchronizationKind,
@@ -60,7 +59,7 @@ internal class MpvSynchronizationConfigCoordinator(
 
     private fun enqueue(
         key: OperationKey,
-        execute: suspend () -> Result<MpvSynchronizationDefaults>
+        execute: suspend () -> Result<MpvSynchronizationDefaults>,
     ): CompletableDeferred<MpvSynchronizationConfigOutcome> {
         val response = CompletableDeferred<MpvSynchronizationConfigOutcome>()
         val generation = Math.incrementExact(latestGenerationByKey[key] ?: 0L)

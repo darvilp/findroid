@@ -47,7 +47,7 @@ fun EpisodeActionsDialog(
                 when (episode.played) {
                     true -> CoreR.string.unmark_as_played
                     false -> CoreR.string.mark_as_played
-                }
+                },
             ),
         onAction = onTogglePlayed,
         onDismissRequest = onDismissRequest,

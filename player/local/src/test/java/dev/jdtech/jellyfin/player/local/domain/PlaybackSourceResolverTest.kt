@@ -63,8 +63,7 @@ class PlaybackSourceResolverTest {
                         stream(3, MediaStreamType.SUBTITLE, external = true),
                     ),
             )
-        val selection =
-            InitialTrackSelection(mediaSourceId = "remote", subtitleStreamIndex = 3)
+        val selection = InitialTrackSelection(mediaSourceId = "remote", subtitleStreamIndex = 3)
 
         val resolved = PlaybackSourceResolver.resolve(listOf(local, unusableRemote), selection)
 

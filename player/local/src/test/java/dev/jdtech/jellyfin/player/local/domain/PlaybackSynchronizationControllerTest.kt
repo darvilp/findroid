@@ -110,7 +110,7 @@ class PlaybackSynchronizationControllerTest {
                 sessionToken = session,
                 kind = MpvSynchronizationKind.AUDIO,
                 savedValueMs = capturedForSave,
-            )
+            ),
         )
 
         assertEquals(175L, controller.baseline(MpvSynchronizationKind.AUDIO))
@@ -136,7 +136,7 @@ class PlaybackSynchronizationControllerTest {
                 sessionToken = oldSession,
                 kind = MpvSynchronizationKind.AUDIO,
                 savedValueMs = 175L,
-            )
+            ),
         )
         assertEquals(300L, controller.baseline(MpvSynchronizationKind.AUDIO))
     }

@@ -61,7 +61,7 @@ fun VideoPlayerTrackSelectorDialog(
         if (trackDialogShowsSynchronization(trackType, onSynchronization != null)) 1 else 0
     val listState =
         rememberLazyListState(
-            initialFirstVisibleItemIndex = selectedListIndex + synchronizationEntryCount
+            initialFirstVisibleItemIndex = selectedListIndex + synchronizationEntryCount,
         )
     val selectedFocusRequester = remember { FocusRequester() }
 
@@ -88,15 +88,17 @@ fun VideoPlayerTrackSelectorDialog(
                     state = listState,
                     verticalArrangement =
                         Arrangement.spacedBy(
-                            MaterialTheme.spacings.medium - MaterialTheme.spacings.extraSmall
+                            MaterialTheme.spacings.medium - MaterialTheme.spacings.extraSmall,
                         ),
-                    contentPadding =
-                        PaddingValues(vertical = MaterialTheme.spacings.extraSmall),
+                    contentPadding = PaddingValues(vertical = MaterialTheme.spacings.extraSmall),
                 ) {
                     if (trackDialogShowsSynchronization(trackType, onSynchronization != null)) {
                         item(key = "synchronization") {
                             ActionOption(
-                                text = stringResource(id = dev.jdtech.jellyfin.R.string.synchronization),
+                                text =
+                                    stringResource(
+                                        id = dev.jdtech.jellyfin.R.string.synchronization,
+                                    ),
                                 onClick = checkNotNull(onSynchronization),
                             )
                         }
@@ -148,11 +150,23 @@ private fun ActionOption(text: String, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
         shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(4.dp)),
-        colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color.Transparent),
-        border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(4.dp, Color.White), shape = RoundedCornerShape(10.dp))),
+        colors =
+            ClickableSurfaceDefaults.colors(
+                containerColor = Color.Transparent,
+                focusedContainerColor = Color.Transparent,
+            ),
+        border =
+            ClickableSurfaceDefaults.border(
+                focusedBorder =
+                    Border(BorderStroke(4.dp, Color.White), shape = RoundedCornerShape(10.dp)),
+            ),
         scale = ClickableSurfaceScale.None,
     ) {
-        Text(text = text, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(MaterialTheme.spacings.medium))
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.padding(MaterialTheme.spacings.medium),
+        )
     }
 }
 
@@ -181,7 +195,7 @@ private fun TrackOption(
                     Border(
                         BorderStroke(4.dp, Color.White),
                         shape = RoundedCornerShape(10.dp),
-                    )
+                    ),
             ),
         scale = ClickableSurfaceScale.None,
     ) {

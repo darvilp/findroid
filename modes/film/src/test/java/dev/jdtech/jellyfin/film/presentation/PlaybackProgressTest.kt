@@ -170,7 +170,7 @@ class PlaybackProgressTest {
                 scopedResumeEpisodes = listOf(missing, denied),
                 nextUp = denied,
                 canonicalEpisodes = listOf(missing, denied),
-            )
+            ),
         )
     }
 
@@ -181,5 +181,4 @@ class PlaybackProgressTest {
         assertFalse(hasMeaningfulSavedProgress(playbackPositionTicks = 599_999_999L))
         assertTrue(hasMeaningfulSavedProgress(playbackPositionTicks = 600_000_000L))
     }
-
 }

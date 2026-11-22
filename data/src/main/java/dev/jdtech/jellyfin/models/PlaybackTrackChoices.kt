@@ -39,9 +39,11 @@ fun List<FindroidSource>.playbackTrackChoices(itemId: UUID): PlaybackTrackChoice
 }
 
 private fun List<FindroidMediaStream>.choicesOfType(
-    type: MediaStreamType
-): List<PlaybackTrackChoice> =
-    filter { it.type == type && it.index != null }.mapIndexed { ordinal, stream ->
+    type: MediaStreamType,
+): List<PlaybackTrackChoice> = filter {
+    it.type == type && it.index != null
+}
+    .mapIndexed { ordinal, stream ->
         PlaybackTrackChoice(
             streamIndex = requireNotNull(stream.index),
             displayTitle = stream.displayTitle ?: stream.title,

@@ -48,14 +48,14 @@ import dev.jdtech.jellyfin.core.R as CoreR
 import dev.jdtech.jellyfin.core.presentation.dummy.dummyMovie
 import dev.jdtech.jellyfin.core.presentation.dummy.dummyVideoMetadata
 import dev.jdtech.jellyfin.core.presentation.theme.Yellow
+import dev.jdtech.jellyfin.film.presentation.hasMeaningfulSavedProgress
 import dev.jdtech.jellyfin.film.presentation.movie.MovieAction
 import dev.jdtech.jellyfin.film.presentation.movie.MovieState
 import dev.jdtech.jellyfin.film.presentation.movie.MovieViewModel
-import dev.jdtech.jellyfin.film.presentation.hasMeaningfulSavedProgress
-import dev.jdtech.jellyfin.presentation.film.moviePlaybackRoute
 import dev.jdtech.jellyfin.presentation.film.PreplayTrackSelectionState
 import dev.jdtech.jellyfin.presentation.film.PreplayTrackSelectionViewModel
 import dev.jdtech.jellyfin.presentation.film.components.PreplayTrackControls
+import dev.jdtech.jellyfin.presentation.film.moviePlaybackRoute
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
 import dev.jdtech.jellyfin.utils.format
@@ -114,7 +114,7 @@ private fun MovieScreenLayout(
                 modifier =
                     Modifier.fillMaxSize().onGloballyPositioned { coordinates ->
                         size = coordinates.size.toSize()
-                    }
+                    },
             ) {
                 AsyncImage(
                     model = movie.images.backdrop,
@@ -131,8 +131,8 @@ private fun MovieScreenLayout(
                                         listOf(Color.Black.copy(alpha = .2f), Color.Black),
                                         center = Offset(size.width, 0f),
                                         radius = size.width * .8f,
-                                    )
-                                )
+                                    ),
+                                ),
                     )
                 }
                 Column(
@@ -140,7 +140,7 @@ private fun MovieScreenLayout(
                         Modifier.padding(
                             start = MaterialTheme.spacings.default * 2,
                             end = MaterialTheme.spacings.default * 2,
-                        )
+                        ),
                 ) {
                     Spacer(modifier = Modifier.height(112.dp))
                     Text(text = movie.name, style = MaterialTheme.typography.displayMedium)
@@ -151,7 +151,7 @@ private fun MovieScreenLayout(
                     }
                     Spacer(modifier = Modifier.height(MaterialTheme.spacings.small))
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.small)
+                        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.small),
                     ) {
                         movie.premiereDate?.let { premiereDate ->
                             Text(
@@ -196,7 +196,7 @@ private fun MovieScreenLayout(
                     )
                     Spacer(modifier = Modifier.height(MaterialTheme.spacings.default))
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.medium)
+                        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.medium),
                     ) {
                         Button(
                             onClick = { onAction(MovieAction.Play(startFromBeginning = false)) },
@@ -211,9 +211,7 @@ private fun MovieScreenLayout(
                         }
                         if (hasMeaningfulSavedProgress(movie.playbackPositionTicks)) {
                             Button(
-                                onClick = {
-                                    onAction(MovieAction.Play(startFromBeginning = true))
-                                }
+                                onClick = { onAction(MovieAction.Play(startFromBeginning = true)) },
                             ) {
                                 Icon(
                                     painter = painterResource(id = CoreR.drawable.ic_rotate_ccw),
@@ -239,7 +237,7 @@ private fun MovieScreenLayout(
                                     true -> onAction(MovieAction.UnmarkAsPlayed)
                                     false -> onAction(MovieAction.MarkAsPlayed)
                                 }
-                            }
+                            },
                         ) {
                             Icon(
                                 painter = painterResource(id = CoreR.drawable.ic_check),
@@ -252,8 +250,8 @@ private fun MovieScreenLayout(
                                     stringResource(
                                         id =
                                             if (movie.played) CoreR.string.unmark_as_played
-                                            else CoreR.string.mark_as_played
-                                    )
+                                            else CoreR.string.mark_as_played,
+                                    ),
                             )
                         }
                         Button(
@@ -262,14 +260,14 @@ private fun MovieScreenLayout(
                                     true -> onAction(MovieAction.UnmarkAsFavorite)
                                     false -> onAction(MovieAction.MarkAsFavorite)
                                 }
-                            }
+                            },
                         ) {
                             Icon(
                                 painter =
                                     painterResource(
                                         id =
                                             if (movie.favorite) CoreR.drawable.ic_heart_filled
-                                            else CoreR.drawable.ic_heart
+                                            else CoreR.drawable.ic_heart,
                                     ),
                                 contentDescription = null,
                                 tint = if (movie.favorite) Color.Red else LocalContentColor.current,
@@ -280,8 +278,8 @@ private fun MovieScreenLayout(
                                     stringResource(
                                         id =
                                             if (movie.favorite) CoreR.string.remove_from_favorites
-                                            else CoreR.string.add_to_favorites
-                                    )
+                                            else CoreR.string.add_to_favorites,
+                                    ),
                             )
                         }
                     }
@@ -294,7 +292,7 @@ private fun MovieScreenLayout(
                     )
                     Spacer(modifier = Modifier.height(MaterialTheme.spacings.default))
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.large)
+                        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.large),
                     ) {
                         Column {
                             Text(

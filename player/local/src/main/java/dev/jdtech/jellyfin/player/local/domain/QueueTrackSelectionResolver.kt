@@ -56,15 +56,13 @@ object QueueTrackSelectionResolver {
         candidates
             .asSequence()
             .filter { it.index != null && it.type == fingerprint.type }
-            .mapIndexedNotNull { _, candidate ->
-                candidate.scoreAgainst(fingerprint, candidates)
-            }
+            .mapIndexedNotNull { _, candidate -> candidate.scoreAgainst(fingerprint, candidates) }
             .filter { it.score >= MINIMUM_SCORE }
             .sortedWith(
                 compareByDescending<ScoredCandidate> { it.score }
                     .thenByDescending { it.exactTitle }
                     .thenByDescending { it.sameOrdinal }
-                    .thenBy { it.streamIndex }
+                    .thenBy { it.streamIndex },
             )
             .firstOrNull()
             ?.streamIndex
@@ -93,9 +91,7 @@ object QueueTrackSelectionResolver {
         if (exactTitle) score += 2
         if (codec.normalizedMetadata()?.equals(fingerprint.codec) == true) score += 1
         if (sameOrdinal) score += 1
-        if (
-            channelLayout.normalizedMetadata()?.equals(fingerprint.channelLayout) == true
-        ) {
+        if (channelLayout.normalizedMetadata()?.equals(fingerprint.channelLayout) == true) {
             score += 1
         }
         if (type == MediaStreamType.SUBTITLE && isExternal == fingerprint.isExternal) score += 1

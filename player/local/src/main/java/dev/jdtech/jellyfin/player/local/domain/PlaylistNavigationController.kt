@@ -40,10 +40,8 @@ internal class PlaylistNavigationController {
     fun state(target: PlaylistNavigationTarget): PlaylistNavigationState =
         PlaylistNavigationState(
             canGoPrevious =
-                target.hasPreviousMediaItem() &&
-                    target.isPreviousMediaItemCommandAvailable(),
-            canGoNext =
-                target.hasNextMediaItem() && target.isNextMediaItemCommandAvailable(),
+                target.hasPreviousMediaItem() && target.isPreviousMediaItemCommandAvailable(),
+            canGoNext = target.hasNextMediaItem() && target.isNextMediaItemCommandAvailable(),
         )
 
     fun navigate(

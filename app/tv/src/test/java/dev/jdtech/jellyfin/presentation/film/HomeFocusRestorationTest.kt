@@ -19,19 +19,19 @@ class HomeFocusRestorationTest {
             dummyHomeView.copy(
                 view =
                     dummyHomeView.view.copy(
-                        id = UUID.fromString("196d3ef1-e0bb-4c9e-8eb6-22360b87129c")
-                    )
+                        id = UUID.fromString("196d3ef1-e0bb-4c9e-8eb6-22360b87129c"),
+                    ),
             )
         val state =
             HomeState(
                 suggestionsSection = dummyHomeSuggestions.copy(items = emptyList()),
                 resumeSection =
                     dummyHomeSection.copy(
-                        homeSection = dummyHomeSection.homeSection.copy(items = emptyList())
+                        homeSection = dummyHomeSection.homeSection.copy(items = emptyList()),
                     ),
                 nextUpSection =
                     dummyHomeSection.copy(
-                        homeSection = dummyHomeSection.homeSection.copy(items = emptyList())
+                        homeSection = dummyHomeSection.homeSection.copy(items = emptyList()),
                     ),
                 views =
                     listOf(
@@ -40,7 +40,7 @@ class HomeFocusRestorationTest {
                                 dummyHomeView.view.copy(
                                     id =
                                         UUID.fromString(
-                                            "70d24415-87f8-46c0-87a2-b51b8921c1f5"
+                                            "70d24415-87f8-46c0-87a2-b51b8921c1f5",
                                         ),
                                     items = emptyList(),
                                 ),
@@ -64,9 +64,9 @@ class HomeFocusRestorationTest {
                     dummyHomeSection.copy(
                         homeSection =
                             dummyHomeSection.homeSection.copy(
-                                items = listOf(dummyMovie.copy(id = itemId))
-                            )
-                    )
+                                items = listOf(dummyMovie.copy(id = itemId)),
+                            ),
+                    ),
             )
 
         assertFalse(shouldRestoreHomeFocusAfterPlayedAction(itemId, state))
@@ -82,10 +82,10 @@ class HomeFocusRestorationTest {
                         dummyHomeView.copy(
                             view =
                                 dummyHomeView.view.copy(
-                                    items = listOf(dummyMovie.copy(id = itemId))
-                                )
-                        )
-                    )
+                                    items = listOf(dummyMovie.copy(id = itemId)),
+                                ),
+                        ),
+                    ),
             )
 
         assertTrue(shouldRestoreHomeFocusAfterPlayedAction(itemId, state))

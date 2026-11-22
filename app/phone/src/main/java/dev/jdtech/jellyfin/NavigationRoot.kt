@@ -105,7 +105,8 @@ data class LibraryRoute(
 
 @Serializable data class SettingsRoute(val indexes: IntArray)
 
-@Serializable data class SettingsFileEditRoute(
+@Serializable
+data class SettingsFileEditRoute(
     val filePath: String,
 )
 
@@ -179,7 +180,7 @@ fun NavigationRoot(
         with(windowAdaptiveInfo) {
             if (
                 windowSizeClass.isWidthAtLeastBreakpoint(
-                    WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND
+                    WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND,
                 )
             ) {
                 NavigationSuiteType.NavigationRail
@@ -298,7 +299,7 @@ fun NavigationRoot(
                                 libraryId = it.id.toString(),
                                 libraryName = it.name,
                                 libraryType = it.type,
-                            )
+                            ),
                         )
                     },
                     onSearchClick = {
@@ -311,7 +312,7 @@ fun NavigationRoot(
                     },
                     onSettingsClick = {
                         navController.safeNavigate(
-                            SettingsRoute(indexes = intArrayOf(CoreR.string.title_settings))
+                            SettingsRoute(indexes = intArrayOf(CoreR.string.title_settings)),
                         )
                     },
                     onManageServers = { navController.safeNavigate(ServersRoute) },
@@ -334,7 +335,7 @@ fun NavigationRoot(
                 DownloadsScreen(
                     onItemClick = { item ->
                         navigateToItem(navController = navController, item = item)
-                    }
+                    },
                 )
             }
             composable<LibraryRoute> { backStackEntry ->
@@ -458,7 +459,8 @@ fun NavigationRoot(
                 val route: SettingsFileEditRoute = backStackEntry.toRoute()
                 SettingsFileEditScreen(
                     filePath = route.filePath,
-                    navigateBack = { navController.safePopBackStack() })
+                    navigateBack = { navController.safePopBackStack() },
+                )
             }
             composable<AboutRoute> {
                 AboutScreen(navigateBack = { navController.safePopBackStack() })
@@ -478,7 +480,7 @@ private fun navigateToItem(navController: NavHostController, item: FindroidItem)
     when (item) {
         is FindroidBoxSet ->
             navController.safeNavigate(
-                CollectionRoute(collectionId = item.id.toString(), collectionName = item.name)
+                CollectionRoute(collectionId = item.id.toString(), collectionName = item.name),
             )
         is FindroidMovie -> navController.safeNavigate(MovieRoute(movieId = item.id.toString()))
         is FindroidShow -> navController.safeNavigate(ShowRoute(showId = item.id.toString()))
@@ -491,7 +493,7 @@ private fun navigateToItem(navController: NavHostController, item: FindroidItem)
                     libraryId = item.id.toString(),
                     libraryName = item.name,
                     libraryType = item.type,
-                )
+                ),
             )
         is FindroidFolder ->
             navController.safeNavigate(
@@ -499,7 +501,7 @@ private fun navigateToItem(navController: NavHostController, item: FindroidItem)
                     libraryId = item.id.toString(),
                     libraryName = item.name,
                     libraryType = CollectionType.Folders,
-                )
+                ),
             )
         else -> Unit
     }

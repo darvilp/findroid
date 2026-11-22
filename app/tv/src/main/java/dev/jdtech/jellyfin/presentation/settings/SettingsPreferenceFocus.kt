@@ -56,10 +56,7 @@ internal fun Preference.focusKey(): SettingsPreferenceFocusKey =
     }
 
 internal fun List<PreferenceGroup>.findPreference(
-    key: SettingsPreferenceFocusKey?
-): Preference? =
-    key?.let { focusKey ->
-        asSequence()
-            .flatMap { it.preferences.asSequence() }
-            .firstOrNull { it.focusKey() == focusKey }
-    }
+    key: SettingsPreferenceFocusKey?,
+): Preference? = key?.let { focusKey ->
+    asSequence().flatMap { it.preferences.asSequence() }.firstOrNull { it.focusKey() == focusKey }
+}

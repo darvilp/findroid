@@ -29,13 +29,14 @@ class PlaybackStartResolver internal constructor(private val source: PlaybackSta
             selectResumePlaybackStart(
                 getResumeEpisodesOrEmpty(seriesId).filter { episode ->
                     episode.seriesId == seriesId
-                }
+                },
             )
         if (scopedResumeStart != null) return scopedResumeStart
 
-        val regularSeasons = seasons.filter { season -> season.indexNumber != 0 }.sortedBy {
-            season -> season.indexNumber
-        }
+        val regularSeasons =
+            seasons
+                .filter { season -> season.indexNumber != 0 }
+                .sortedBy { season -> season.indexNumber }
         val regularEpisodes = loadEpisodesOrNull(seriesId, regularSeasons) ?: return null
         val regularResumeStart = selectResumePlaybackStart(regularEpisodes)
         if (regularResumeStart != null) return regularResumeStart
@@ -94,11 +95,9 @@ class PlaybackStartResolver internal constructor(private val source: PlaybackSta
     ): List<FindroidEpisode>? =
         try {
             seasons.flatMap { season ->
-                source
-                    .getEpisodes(seriesId, season.id)
-                    .filter { episode ->
-                        episode.seriesId == seriesId && episode.seasonId == season.id
-                    }
+                source.getEpisodes(seriesId, season.id).filter { episode ->
+                    episode.seriesId == seriesId && episode.seasonId == season.id
+                }
             }
         } catch (exception: CancellationException) {
             throw exception

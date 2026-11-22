@@ -23,9 +23,9 @@ import androidx.tv.material3.IconButton
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import dev.jdtech.jellyfin.core.R as CoreR
+import dev.jdtech.jellyfin.player.local.domain.PlaylistNavigationState
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
-import dev.jdtech.jellyfin.player.local.domain.PlaylistNavigationState
 import dev.jdtech.jellyfin.ui.player.RemoteSeekDirection
 
 @Composable
@@ -93,7 +93,7 @@ fun VideoPlayerSeeker(
                                 CoreR.drawable.ic_pause
                             } else {
                                 CoreR.drawable.ic_play
-                            }
+                            },
                     ),
                 contentDescription = null,
             )
@@ -174,8 +174,7 @@ internal fun seekTarget(
     val increment = incrementMs.coerceAtLeast(0L)
     if (!forward) return (position - increment).coerceAtLeast(0L)
 
-    val target =
-        if (position > Long.MAX_VALUE - increment) Long.MAX_VALUE else position + increment
+    val target = if (position > Long.MAX_VALUE - increment) Long.MAX_VALUE else position + increment
     return if (durationMs > 0L) target.coerceAtMost(durationMs) else target
 }
 
@@ -201,8 +200,7 @@ private fun VideoPlayerSeekerPreview() {
             state = rememberVideoPlayerState(),
             isPlaying = false,
             onPlayPauseToggle = {},
-            playlistNavigation =
-                PlaylistNavigationState(canGoPrevious = true, canGoNext = true),
+            playlistNavigation = PlaylistNavigationState(canGoPrevious = true, canGoNext = true),
             onPreviousEpisode = {},
             onNextEpisode = {},
             onSeekKeyEvent = { _, _ -> },

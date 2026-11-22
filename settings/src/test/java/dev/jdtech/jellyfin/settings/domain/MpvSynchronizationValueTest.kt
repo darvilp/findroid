@@ -63,8 +63,14 @@ class MpvSynchronizationValueTest {
     fun `parses signed mpv seconds only when they represent exact milliseconds`() {
         assertEquals(-50L, MpvSynchronizationValue.parseSignedMpvSeconds("-0.050"))
         assertEquals(1_500L, MpvSynchronizationValue.parseSignedMpvSeconds("1.5"))
-        assertEquals(Long.MAX_VALUE, MpvSynchronizationValue.parseSignedMpvSeconds("9223372036854775.807"))
-        assertEquals(Long.MIN_VALUE, MpvSynchronizationValue.parseSignedMpvSeconds("-9223372036854775.808"))
+        assertEquals(
+            Long.MAX_VALUE,
+            MpvSynchronizationValue.parseSignedMpvSeconds("9223372036854775.807"),
+        )
+        assertEquals(
+            Long.MIN_VALUE,
+            MpvSynchronizationValue.parseSignedMpvSeconds("-9223372036854775.808"),
+        )
         assertNull(MpvSynchronizationValue.parseSignedMpvSeconds("0.0005"))
         assertNull(MpvSynchronizationValue.parseSignedMpvSeconds("seconds"))
         assertNull(MpvSynchronizationValue.parseSignedMpvSeconds("9223372036854775.808"))
@@ -75,23 +81,41 @@ class MpvSynchronizationValueTest {
     fun `directed exact entry accepts endpoints and rejects values beyond them`() {
         assertEquals(
             Long.MIN_VALUE,
-            MpvSynchronizationValue.parseDirectedMagnitudeSeconds("9223372036854775.808", negative = true),
+            MpvSynchronizationValue.parseDirectedMagnitudeSeconds(
+                "9223372036854775.808",
+                negative = true,
+            ),
         )
         assertEquals(
             Long.MAX_VALUE,
-            MpvSynchronizationValue.parseDirectedMagnitudeSeconds("9223372036854775.807", negative = false),
+            MpvSynchronizationValue.parseDirectedMagnitudeSeconds(
+                "9223372036854775.807",
+                negative = false,
+            ),
         )
         assertNull(
-            MpvSynchronizationValue.parseDirectedMagnitudeSeconds("9223372036854775.809", negative = true),
+            MpvSynchronizationValue.parseDirectedMagnitudeSeconds(
+                "9223372036854775.809",
+                negative = true,
+            ),
         )
         assertNull(
-            MpvSynchronizationValue.parseDirectedMagnitudeSeconds("9223372036854775.808", negative = false),
+            MpvSynchronizationValue.parseDirectedMagnitudeSeconds(
+                "9223372036854775.808",
+                negative = false,
+            ),
         )
     }
 
     @Test
     fun `formats the complete signed long range exactly`() {
-        assertEquals("9223372036854775.807", MpvSynchronizationValue.formatMpvSeconds(Long.MAX_VALUE))
-        assertEquals("-9223372036854775.808", MpvSynchronizationValue.formatMpvSeconds(Long.MIN_VALUE))
+        assertEquals(
+            "9223372036854775.807",
+            MpvSynchronizationValue.formatMpvSeconds(Long.MAX_VALUE),
+        )
+        assertEquals(
+            "-9223372036854775.808",
+            MpvSynchronizationValue.formatMpvSeconds(Long.MIN_VALUE),
+        )
     }
 }

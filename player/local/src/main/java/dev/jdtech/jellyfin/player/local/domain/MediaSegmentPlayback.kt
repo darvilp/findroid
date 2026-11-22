@@ -65,9 +65,7 @@ class MediaSegmentPlayback {
             return MediaSegmentPlaybackDecision.AutoSkip(segment)
         }
 
-        return if (
-            preferences.manualSkipEnabled && segment.type in preferences.manualSkipTypes
-        ) {
+        return if (preferences.manualSkipEnabled && segment.type in preferences.manualSkipTypes) {
             MediaSegmentPlaybackDecision.ManualPrompt(segment)
         } else {
             MediaSegmentPlaybackDecision.None

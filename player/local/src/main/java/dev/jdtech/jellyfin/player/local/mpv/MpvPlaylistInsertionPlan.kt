@@ -18,9 +18,7 @@ internal fun planMpvPlaylistInsertion(
 ): MpvPlaylistInsertionPlan {
     val insertionIndex = requestedIndex.coerceAtMost(playlistSize)
     val shiftsCurrentItem =
-        playlistSize > 0 &&
-            insertedItemCount > 0 &&
-            insertionIndex <= currentMediaItemIndex
+        playlistSize > 0 && insertedItemCount > 0 && insertionIndex <= currentMediaItemIndex
     val currentMediaItemIndexAfterInsertion =
         if (shiftsCurrentItem) {
             currentMediaItemIndex + insertedItemCount

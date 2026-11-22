@@ -65,7 +65,9 @@ android {
                     signingConfigs.create("findroidTvRelease") {
                         storeFile =
                             file(
-                                findroidTvSigningEnvironment.getValue("FINDROID_TV_KEYSTORE_FILE")!!
+                                findroidTvSigningEnvironment.getValue(
+                                    "FINDROID_TV_KEYSTORE_FILE",
+                                )!!,
                             )
                         storePassword =
                             findroidTvSigningEnvironment.getValue("FINDROID_TV_KEYSTORE_PASSWORD")
@@ -145,7 +147,7 @@ gradle.taskGraph.whenReady {
     if (releaseArtifactRequested && findroidTvMissingSigningInputs.isNotEmpty()) {
         error(
             "Findroid TV release signing requires environment variables: " +
-                findroidTvMissingSigningInputs.sorted().joinToString(", ")
+                findroidTvMissingSigningInputs.sorted().joinToString(", "),
         )
     }
 }

@@ -143,7 +143,7 @@ internal class RepositoryHomeDataSource(
                 .takeIf { it.isNotEmpty() }
                 ?.let {
                     HomeItem.Section(
-                        HomeSection(uuidContinueWatching, uiTextContinueWatching, it)
+                        HomeSection(uuidContinueWatching, uiTextContinueWatching, it),
                     )
                 }
         }

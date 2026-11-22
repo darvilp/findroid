@@ -23,8 +23,9 @@ internal enum class SearchFocusEvent {
     ResultsChanged,
 }
 
-internal fun supportedSearchResults(items: List<FindroidItem>): List<FindroidItem> =
-    items.filter { it is FindroidMovie || it is FindroidShow }
+internal fun supportedSearchResults(items: List<FindroidItem>): List<FindroidItem> = items.filter {
+    it is FindroidMovie || it is FindroidShow
+}
 
 internal fun searchDestination(item: FindroidItem): SearchDestination? =
     when (item) {

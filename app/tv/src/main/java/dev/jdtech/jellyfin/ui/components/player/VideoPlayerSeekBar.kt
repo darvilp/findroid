@@ -41,9 +41,7 @@ fun VideoPlayerSeekBar(
     val animatedHeight by animateDpAsState(targetValue = 8.dp.times(if (isFocused) 2f else 1f))
     val safeProgress = progress.takeIf { it.isFinite() }?.coerceIn(0f, 1f) ?: 0f
 
-    LaunchedEffect(isFocused) {
-        if (isFocused) state.showControls()
-    }
+    LaunchedEffect(isFocused) { if (isFocused) state.showControls() }
 
     Canvas(
         modifier =
@@ -73,7 +71,7 @@ fun VideoPlayerSeekBar(
                         else -> false
                     }
                 }
-                .focusable(interactionSource = interactionSource)
+                .focusable(interactionSource = interactionSource),
     ) {
         val yOffset = size.height / 2f
         drawLine(

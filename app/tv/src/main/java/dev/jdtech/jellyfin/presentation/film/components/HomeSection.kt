@@ -112,8 +112,7 @@ internal enum class HomeRow {
     Suggestions,
     Resume,
     NextUp,
-    Latest,
-    ;
+    Latest;
 
     fun playedActionFor(item: FindroidItem): HomeAction.MarkAsPlayed? =
         when (this) {

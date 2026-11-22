@@ -18,7 +18,7 @@ class PlaybackCompletionCoordinatorTest {
                         itemId = itemId,
                         positionTicks = 18_000_000L,
                         playedPercentage = 100,
-                    )
+                    ),
             ),
             coordinator.claimTerminalCompletion(
                 itemId = itemId,
@@ -31,7 +31,7 @@ class PlaybackCompletionCoordinatorTest {
                 itemId = itemId,
                 positionMs = 1_800L,
                 durationMs = 1_800L,
-            )
+            ),
         )
     }
 
@@ -52,7 +52,7 @@ class PlaybackCompletionCoordinatorTest {
                 itemId = null,
                 positionMs = -1L,
                 durationMs = -1L,
-            )
+            ),
         )
     }
 
@@ -67,10 +67,7 @@ class PlaybackCompletionCoordinatorTest {
 
         assertEquals(
             secondItemId,
-            coordinator
-                .claimTerminalCompletion(secondItemId, 1_900L, 2_000L)
-                ?.stopReport
-                ?.itemId,
+            coordinator.claimTerminalCompletion(secondItemId, 1_900L, 2_000L)?.stopReport?.itemId,
         )
     }
 

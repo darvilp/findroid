@@ -3,10 +3,10 @@ package dev.jdtech.jellyfin.presentation.film.components
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -178,7 +178,8 @@ private fun PreplayTrackDialog(
         when {
             selectedIndex == null -> 0
             selectedIndex == InitialTrackSelection.SUBTITLE_OFF && includeOff -> 1
-            else -> choices.indexOfFirst { it.streamIndex == selectedIndex } + if (includeOff) 2 else 1
+            else ->
+                choices.indexOfFirst { it.streamIndex == selectedIndex } + if (includeOff) 2 else 1
         }.coerceAtLeast(0)
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = selectedListIndex)
     val selectedFocusRequester = remember { FocusRequester() }
@@ -212,7 +213,8 @@ private fun PreplayTrackDialog(
                                     secondary = null,
                                 ),
                             selected = selectedIndex == null,
-                            modifier = selectedModifier(selectedListIndex == 0, selectedFocusRequester),
+                            modifier =
+                                selectedModifier(selectedListIndex == 0, selectedFocusRequester),
                             onClick = { onSelect(null) },
                         )
                     }
@@ -225,12 +227,13 @@ private fun PreplayTrackDialog(
                                         primary = stringResource(R.string.preplay_off),
                                         secondary = null,
                                     ),
-                                selected =
-                                    selectedIndex == InitialTrackSelection.SUBTITLE_OFF,
-                                modifier = selectedModifier(selectedListIndex == 1, selectedFocusRequester),
-                                onClick = {
-                                    onSelect(InitialTrackSelection.SUBTITLE_OFF)
-                                },
+                                selected = selectedIndex == InitialTrackSelection.SUBTITLE_OFF,
+                                modifier =
+                                    selectedModifier(
+                                        selectedListIndex == 1,
+                                        selectedFocusRequester,
+                                    ),
+                                onClick = { onSelect(InitialTrackSelection.SUBTITLE_OFF) },
                             )
                         }
                     }
@@ -276,7 +279,7 @@ private fun TrackChoiceRow(
                     Border(
                         BorderStroke(4.dp, Color.White),
                         shape = RoundedCornerShape(10.dp),
-                    )
+                    ),
             ),
         scale = ClickableSurfaceScale.None,
     ) {

@@ -49,7 +49,7 @@ class ChapterRemoteKeyEventTest {
     @Test
     fun `active modal retains chapter key ownership`() {
         assertNull(
-            chapterRemoteCommand(KeyEvent.KEYCODE_CHANNEL_UP, true, meaningfulNavigation())
+            chapterRemoteCommand(KeyEvent.KEYCODE_CHANNEL_UP, true, meaningfulNavigation()),
         )
     }
 

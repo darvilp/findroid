@@ -23,7 +23,7 @@ class SeasonPlaybackRouteTest {
                 seasonPlaybackRoute(
                     state = state,
                     action = SeasonAction.Play(startFromBeginning = true),
-                )
+                ),
             )
 
         assertEquals(episode.id.toString(), route.itemId)
@@ -38,7 +38,7 @@ class SeasonPlaybackRouteTest {
                 seasonPlaybackRoute(
                     state = SeasonState(),
                     action = SeasonAction.NavigateToItem(dummyEpisode),
-                )
+                ),
             )
 
         assertEquals(dummyEpisode.id.toString(), route.itemId)
@@ -76,7 +76,7 @@ class SeasonPlaybackRouteTest {
                         episodeId = UUID.fromString("cccccccc-1111-2222-3333-dddddddddddd"),
                         played = true,
                     ),
-            )
+            ),
         )
     }
 

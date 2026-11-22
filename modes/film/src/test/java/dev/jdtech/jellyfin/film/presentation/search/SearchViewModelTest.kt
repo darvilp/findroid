@@ -57,7 +57,10 @@ class SearchViewModelTest {
         advanceTimeBy(1)
         runCurrent()
         assertEquals(listOf("ab"), queries)
-        assertEquals(SearchState(query = "  ab  ", items = listOf(dummyMovie)), viewModel.state.value)
+        assertEquals(
+            SearchState(query = "  ab  ", items = listOf(dummyMovie)),
+            viewModel.state.value,
+        )
     }
 
     @Test
@@ -122,7 +125,10 @@ class SearchViewModelTest {
         runCurrent()
 
         assertEquals(2, attempts)
-        assertEquals(SearchState(query = "movie", items = listOf(dummyMovie)), viewModel.state.value)
+        assertEquals(
+            SearchState(query = "movie", items = listOf(dummyMovie)),
+            viewModel.state.value,
+        )
     }
 
     @Test

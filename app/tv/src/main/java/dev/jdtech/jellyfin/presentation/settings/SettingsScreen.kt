@@ -142,7 +142,7 @@ private fun SettingsScreenLayoutPreview() {
                                             nameStringResource =
                                                 SettingsR.string.settings_category_language,
                                             iconDrawableId = SettingsR.drawable.ic_languages,
-                                        )
+                                        ),
                                     ),
                             ),
                             PreferenceGroup(
@@ -153,10 +153,10 @@ private fun SettingsScreenLayoutPreview() {
                                             nameStringResource =
                                                 SettingsR.string.settings_category_appearance,
                                             iconDrawableId = SettingsR.drawable.ic_palette,
-                                        )
+                                        ),
                                     ),
                             ),
-                        )
+                        ),
                 ),
             onAction = {},
         )

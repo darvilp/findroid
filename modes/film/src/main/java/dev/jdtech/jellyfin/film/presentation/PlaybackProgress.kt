@@ -23,10 +23,12 @@ internal fun selectPlaybackStartEpisode(
 ): PlaybackStart? =
     selectResumePlaybackStart(scopedResumeEpisodes)
         ?: selectResumePlaybackStart(canonicalEpisodes)
-        ?: nextUp
-            ?.takeIf(FindroidEpisode::isUnplayedAndAvailable)
-            ?.let { episode -> PlaybackStart(episode = episode, startFromBeginning = false) }
-        ?: canonicalEpisodes.firstPlaybackStart(isCandidate = FindroidEpisode::isUnplayedAndAvailable)
+        ?: nextUp?.takeIf(FindroidEpisode::isUnplayedAndAvailable)?.let { episode ->
+            PlaybackStart(episode = episode, startFromBeginning = false)
+        }
+        ?: canonicalEpisodes.firstPlaybackStart(
+            isCandidate = FindroidEpisode::isUnplayedAndAvailable,
+        )
         ?: canonicalEpisodes.firstPlaybackStart(
             startFromBeginning = true,
             isCandidate = FindroidEpisode::isAvailableForPlayback,
@@ -35,8 +37,7 @@ internal fun selectPlaybackStartEpisode(
 internal fun selectResumePlaybackStart(episodes: List<FindroidEpisode>): PlaybackStart? =
     episodes.firstPlaybackStart(isCandidate = FindroidEpisode::isResumable)
 
-private fun FindroidEpisode.isUnplayedAndAvailable(): Boolean =
-    isAvailableForPlayback() && !played
+private fun FindroidEpisode.isUnplayedAndAvailable(): Boolean = isAvailableForPlayback() && !played
 
 private fun FindroidEpisode.isResumable(): Boolean =
     isUnplayedAndAvailable() && playbackPositionTicks > 0L

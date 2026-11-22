@@ -158,7 +158,7 @@ private fun SearchScreenLayout(
                     start = MaterialTheme.spacings.default * 2,
                     end = MaterialTheme.spacings.default * 2,
                     bottom = MaterialTheme.spacings.large,
-                )
+                ),
     ) {
         OutlinedTextField(
             value = state.query,
@@ -181,7 +181,7 @@ private fun SearchScreenLayout(
                             onAction(SearchAction.Search(""))
                             inputFocusRequester.requestFocus()
                             keyboardController?.show()
-                        }
+                        },
                     ) {
                         Icon(
                             painter = painterResource(CoreR.drawable.ic_x),
@@ -199,22 +199,23 @@ private fun SearchScreenLayout(
                     imeAction = ImeAction.Search,
                 ),
             keyboardActions =
-                androidx.compose.foundation.text.KeyboardActions(onSearch = { requestResultFocus() }),
+                androidx.compose.foundation.text.KeyboardActions(
+                    onSearch = { requestResultFocus() },
+                ),
             modifier =
-                Modifier.fillMaxWidth()
-                    .focusRequester(inputFocusRequester)
-                    .onPreviewKeyEvent { keyEvent ->
-                        if (
-                            keyEvent.type == KeyEventType.KeyDown &&
-                                keyEvent.nativeKeyEvent.keyCode == KEYCODE_DPAD_DOWN &&
-                                results.isNotEmpty()
-                        ) {
-                            requestResultFocus()
-                            true
-                        } else {
-                            false
-                        }
-                    },
+                Modifier.fillMaxWidth().focusRequester(inputFocusRequester).onPreviewKeyEvent {
+                    keyEvent ->
+                    if (
+                        keyEvent.type == KeyEventType.KeyDown &&
+                            keyEvent.nativeKeyEvent.keyCode == KEYCODE_DPAD_DOWN &&
+                            results.isNotEmpty()
+                    ) {
+                        requestResultFocus()
+                        true
+                    } else {
+                        false
+                    }
+                },
         )
 
         Spacer(modifier = Modifier.height(MaterialTheme.spacings.default))

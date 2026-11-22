@@ -19,14 +19,12 @@ fun List<Track>.findTrack(
     type: Int,
     groupIndex: Int,
     trackIndex: Int,
-): Track? =
-    singleOrNull {
-        it.type == type && it.groupIndex == groupIndex && it.trackIndex == trackIndex
-    }
+): Track? = singleOrNull {
+    it.type == type && it.groupIndex == groupIndex && it.trackIndex == trackIndex
+}
 
-fun List<Track>.withSelectedTrack(groupIndex: Int?, trackIndex: Int?): List<Track> =
-    map { track ->
-        track.copy(
-            selected = track.groupIndex == groupIndex && track.trackIndex == trackIndex
-        )
-    }
+fun List<Track>.withSelectedTrack(groupIndex: Int?, trackIndex: Int?): List<Track> = map { track ->
+    track.copy(
+        selected = track.groupIndex == groupIndex && track.trackIndex == trackIndex,
+    )
+}

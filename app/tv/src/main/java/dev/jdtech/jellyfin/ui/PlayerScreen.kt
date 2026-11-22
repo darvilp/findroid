@@ -55,11 +55,12 @@ import dev.jdtech.jellyfin.models.FindroidSegment
 import dev.jdtech.jellyfin.models.InitialTrackSelection
 import dev.jdtech.jellyfin.player.local.domain.ChapterNavigationDirection
 import dev.jdtech.jellyfin.player.local.domain.ChapterNavigationState
-import dev.jdtech.jellyfin.player.local.domain.PlaylistNavigationState
 import dev.jdtech.jellyfin.player.local.domain.PlaybackDetailsTarget
-import dev.jdtech.jellyfin.player.local.presentation.PlayerViewModel
+import dev.jdtech.jellyfin.player.local.domain.PlaylistNavigationState
 import dev.jdtech.jellyfin.player.local.presentation.PlayerEvents
+import dev.jdtech.jellyfin.player.local.presentation.PlayerViewModel
 import dev.jdtech.jellyfin.presentation.theme.spacings
+import dev.jdtech.jellyfin.settings.domain.MpvSynchronizationKind
 import dev.jdtech.jellyfin.ui.components.player.VideoPlayerControlsLayout
 import dev.jdtech.jellyfin.ui.components.player.VideoPlayerMediaButton
 import dev.jdtech.jellyfin.ui.components.player.VideoPlayerMediaTextButton
@@ -70,15 +71,14 @@ import dev.jdtech.jellyfin.ui.components.player.VideoPlayerSeeker
 import dev.jdtech.jellyfin.ui.components.player.VideoPlayerState
 import dev.jdtech.jellyfin.ui.components.player.chapterMarkerProgress
 import dev.jdtech.jellyfin.ui.components.player.rememberVideoPlayerState
-import dev.jdtech.jellyfin.ui.dialogs.VideoPlayerTrackSelectorDialog
 import dev.jdtech.jellyfin.ui.dialogs.SynchronizationDialog
+import dev.jdtech.jellyfin.ui.dialogs.VideoPlayerTrackSelectorDialog
 import dev.jdtech.jellyfin.ui.player.RemoteSeekController
 import dev.jdtech.jellyfin.ui.player.RemoteSeekDirection
 import dev.jdtech.jellyfin.ui.player.RemoteSeekPlayback
 import dev.jdtech.jellyfin.ui.player.chapterRemoteCommand
 import dev.jdtech.jellyfin.ui.player.remoteSeekDirectionOrNull
 import java.util.UUID
-import dev.jdtech.jellyfin.settings.domain.MpvSynchronizationKind
 import kotlinx.coroutines.delay
 
 @Composable
@@ -142,8 +142,9 @@ fun PlayerScreen(
     val remoteSeekController = remember { RemoteSeekController() }
     val rootFocusRequester = remember { FocusRequester() }
     val skipButtonFocusRequester = remember { FocusRequester() }
-    val controlFocusRequesters =
-        remember { PlayerControl.entries.associateWith { FocusRequester() } }
+    val controlFocusRequesters = remember {
+        PlayerControl.entries.associateWith { FocusRequester() }
+    }
 
     var currentPosition by remember { mutableLongStateOf(0L) }
     var isPlaying by remember { mutableStateOf(viewModel.player.isPlaying) }
@@ -192,23 +193,21 @@ fun PlayerScreen(
     val segment = uiState.currentSegment
     val chapterNavigation = viewModel.chapterNavigationState(currentPosition)
     val restartAvailable = viewModel.isRestartCurrentItemAvailable(currentPosition)
-    val actionControls =
-        buildList {
-            if (uiState.currentDetailsTarget != null) add(PlayerControl.Details)
-            if (restartAvailable) add(PlayerControl.Restart)
-            if (chapterNavigation.previousChapter != null) add(PlayerControl.PreviousChapter)
-            if (chapterNavigation.nextChapter != null) add(PlayerControl.NextChapter)
-            add(PlayerControl.Audio)
-            add(PlayerControl.Subtitles)
-            if (hardwareDecodingActive != null) add(PlayerControl.HardwareDecoder)
-        }
-    val bottomControls =
-        buildList {
-            if (uiState.playlistNavigation.canGoPrevious) add(PlayerControl.PreviousEpisode)
-            add(PlayerControl.PlayPause)
-            if (uiState.playlistNavigation.canGoNext) add(PlayerControl.NextEpisode)
-            add(PlayerControl.SeekBar)
-        }
+    val actionControls = buildList {
+        if (uiState.currentDetailsTarget != null) add(PlayerControl.Details)
+        if (restartAvailable) add(PlayerControl.Restart)
+        if (chapterNavigation.previousChapter != null) add(PlayerControl.PreviousChapter)
+        if (chapterNavigation.nextChapter != null) add(PlayerControl.NextChapter)
+        add(PlayerControl.Audio)
+        add(PlayerControl.Subtitles)
+        if (hardwareDecodingActive != null) add(PlayerControl.HardwareDecoder)
+    }
+    val bottomControls = buildList {
+        if (uiState.playlistNavigation.canGoPrevious) add(PlayerControl.PreviousEpisode)
+        add(PlayerControl.PlayPause)
+        if (uiState.playlistNavigation.canGoNext) add(PlayerControl.NextEpisode)
+        add(PlayerControl.SeekBar)
+    }
     val availableControls = (actionControls + bottomControls).toSet()
 
     val onControlFocused = { control: PlayerControl ->
@@ -219,9 +218,7 @@ fun PlayerScreen(
         if (control in bottomControls) lastFocusedBottomControl = control
     }
 
-    LaunchedEffect(segment) {
-        if (segment == null) dismissedSkipSegment = null
-    }
+    LaunchedEffect(segment) { if (segment == null) dismissedSkipSegment = null }
 
     LaunchedEffect(segment, lastFocusWasSkipPrompt, videoPlayerState.mode) {
         val control =
@@ -241,7 +238,8 @@ fun PlayerScreen(
     val skipPromptMayTakeFocus =
         segment != null &&
             segment != dismissedSkipSegment &&
-            selectedTrackType == null && synchronizationKind == null &&
+            selectedTrackType == null &&
+            synchronizationKind == null &&
             videoPlayerState.mode != VideoPlayerOverlayMode.Controls
 
     LaunchedEffect(videoPlayerState.mode) {
@@ -316,9 +314,10 @@ fun PlayerScreen(
 
     BackHandler(
         enabled =
-            selectedTrackType != null || synchronizationKind != null ||
+            selectedTrackType != null ||
+                synchronizationKind != null ||
                 videoPlayerState.mode != VideoPlayerOverlayMode.Hidden ||
-                skipButtonFocused
+                skipButtonFocused,
     ) {
         when {
             synchronizationKind != null -> closeSynchronizationDialog()
@@ -348,18 +347,14 @@ fun PlayerScreen(
                     skipPromptFocused = skipButtonFocused,
                     onChapterCommand = { direction ->
                         when (direction) {
-                            ChapterNavigationDirection.Previous ->
-                                viewModel.seekToPreviousChapter()
+                            ChapterNavigationDirection.Previous -> viewModel.seekToPreviousChapter()
                             ChapterNavigationDirection.Next -> viewModel.seekToNextChapter()
                         }
                     },
-                )
+                ),
     ) {
         Box(
-            modifier =
-                Modifier.fillMaxSize()
-                    .focusRequester(rootFocusRequester)
-                    .focusable()
+            modifier = Modifier.fillMaxSize().focusRequester(rootFocusRequester).focusable(),
         ) {
             AndroidView(
                 factory = { playerViewContext ->
@@ -376,7 +371,7 @@ fun PlayerScreen(
                             playerViewContext.resources.getColor(
                                 android.R.color.black,
                                 playerViewContext.theme,
-                            )
+                            ),
                         )
                     }
                 },
@@ -499,14 +494,15 @@ fun PlayerScreen(
                 )
                 closeTrackDialog()
             },
-            onSynchronization = uiState.synchronization?.let {
-                {
-                    synchronizationKind =
-                        if (trackType == C.TRACK_TYPE_AUDIO) MpvSynchronizationKind.AUDIO
-                        else MpvSynchronizationKind.SUBTITLE
-                    selectedTrackType = null
-                }
-            },
+            onSynchronization =
+                uiState.synchronization?.let {
+                    {
+                        synchronizationKind =
+                            if (trackType == C.TRACK_TYPE_AUDIO) MpvSynchronizationKind.AUDIO
+                            else MpvSynchronizationKind.SUBTITLE
+                        selectedTrackType = null
+                    }
+                },
             onDismiss = closeTrackDialog,
         )
     }
@@ -573,9 +569,7 @@ private fun VideoPlayerControls(
                 this.up = up
                 this.down = down
             }
-            .onFocusChanged { focusState ->
-                if (focusState.isFocused) onControlFocused(control)
-            }
+            .onFocusChanged { focusState -> if (focusState.isFocused) onControlFocused(control) }
 
     fun actionModifier(control: PlayerControl): Modifier =
         controlModifier(
@@ -586,7 +580,8 @@ private fun VideoPlayerControls(
             down = requester(PlayerControl.SeekBar),
         )
 
-    val upAction = lastFocusedAction?.takeIf { it in actionControls } ?: actionControls.firstOrNull()
+    val upAction =
+        lastFocusedAction?.takeIf { it in actionControls } ?: actionControls.firstOrNull()
     val bottomDownRequester =
         if (skipPromptAvailable) skipButtonFocusRequester else FocusRequester.Cancel
 
@@ -718,7 +713,10 @@ private fun VideoPlayerControls(
                 hardwareDecodingActive?.let { active ->
                     val enableHardwareDecoding = !active
                     VideoPlayerMediaTextButton(
-                        label = stringResource(if (active) R.string.hw_decoder else R.string.sw_decoder),
+                        label =
+                            stringResource(
+                                if (active) R.string.hw_decoder else R.string.sw_decoder,
+                            ),
                         state = state,
                         modifier = actionModifier(PlayerControl.HardwareDecoder),
                         contentDescription =
@@ -727,11 +725,9 @@ private fun VideoPlayerControls(
                                     R.string.switch_to_hardware_decoding
                                 } else {
                                     R.string.switch_to_software_decoding
-                                }
+                                },
                             ),
-                        onClick = {
-                            onSetHardwareDecodingEnabled(enableHardwareDecoding)
-                        },
+                        onClick = { onSetHardwareDecodingEnabled(enableHardwareDecoding) },
                     )
                 }
             }
@@ -783,7 +779,7 @@ private fun SkipButton(
                     },
             glow =
                 ButtonDefaults.glow(
-                    focusedGlow = Glow(elevationColor = Color.Gray, elevation = 20.dp)
+                    focusedGlow = Glow(elevationColor = Color.Gray, elevation = 20.dp),
                 ),
         ) {
             Icon(
@@ -804,74 +800,71 @@ private fun Modifier.playerDPadEvents(
     modalActive: Boolean,
     skipPromptFocused: Boolean,
     onChapterCommand: (ChapterNavigationDirection) -> Unit,
-): Modifier =
-    onPreviewKeyEvent { event ->
-        val keyEvent = event.nativeKeyEvent
-        val chapterCommand =
-            chapterRemoteCommand(
-                keyCode = keyEvent.keyCode,
-                modalActive = modalActive,
-                navigation = chapterNavigation(),
-            )
-        if (chapterCommand != null) {
-            if (keyEvent.action == KeyEvent.ACTION_DOWN && keyEvent.repeatCount == 0) {
-                onChapterCommand(chapterCommand)
-                if (videoPlayerState.mode == VideoPlayerOverlayMode.Controls) {
-                    videoPlayerState.showControls()
-                } else {
-                    videoPlayerState.showPeek()
-                }
+): Modifier = onPreviewKeyEvent { event ->
+    val keyEvent = event.nativeKeyEvent
+    val chapterCommand =
+        chapterRemoteCommand(
+            keyCode = keyEvent.keyCode,
+            modalActive = modalActive,
+            navigation = chapterNavigation(),
+        )
+    if (chapterCommand != null) {
+        if (keyEvent.action == KeyEvent.ACTION_DOWN && keyEvent.repeatCount == 0) {
+            onChapterCommand(chapterCommand)
+            if (videoPlayerState.mode == VideoPlayerOverlayMode.Controls) {
+                videoPlayerState.showControls()
+            } else {
+                videoPlayerState.showPeek()
             }
-            return@onPreviewKeyEvent true
         }
-
-        if (
-            !playerRootOwnsPlaybackKeys(
-                overlayMode = videoPlayerState.mode,
-                skipPromptFocused = skipPromptFocused,
-            )
-        ) {
-            return@onPreviewKeyEvent false
-        }
-
-        val remoteSeekDirection = keyEvent.remoteSeekDirectionOrNull()
-        if (remoteSeekDirection != null) {
-            player.handleRemoteSeekKeyEvent(
-                remoteSeekController,
-                keyEvent,
-                remoteSeekDirection,
-            )
-            if (keyEvent.action == KeyEvent.ACTION_DOWN) videoPlayerState.showPeek()
-            return@onPreviewKeyEvent true
-        }
-
-        when (keyEvent.keyCode) {
-            KeyEvent.KEYCODE_DPAD_UP,
-            KeyEvent.KEYCODE_SYSTEM_NAVIGATION_UP,
-            KeyEvent.KEYCODE_DPAD_DOWN,
-            KeyEvent.KEYCODE_SYSTEM_NAVIGATION_DOWN -> {
-                if (keyEvent.action == KeyEvent.ACTION_DOWN) videoPlayerState.showControls()
-                true
-            }
-            KeyEvent.KEYCODE_DPAD_CENTER,
-            KeyEvent.KEYCODE_ENTER,
-            KeyEvent.KEYCODE_NUMPAD_ENTER -> {
-                if (keyEvent.action == KeyEvent.ACTION_UP) {
-                    if (player.isPlaying) player.pause() else player.play()
-                    videoPlayerState.showControls()
-                }
-                true
-            }
-            else -> false
-        }
+        return@onPreviewKeyEvent true
     }
+
+    if (
+        !playerRootOwnsPlaybackKeys(
+            overlayMode = videoPlayerState.mode,
+            skipPromptFocused = skipPromptFocused,
+        )
+    ) {
+        return@onPreviewKeyEvent false
+    }
+
+    val remoteSeekDirection = keyEvent.remoteSeekDirectionOrNull()
+    if (remoteSeekDirection != null) {
+        player.handleRemoteSeekKeyEvent(
+            remoteSeekController,
+            keyEvent,
+            remoteSeekDirection,
+        )
+        if (keyEvent.action == KeyEvent.ACTION_DOWN) videoPlayerState.showPeek()
+        return@onPreviewKeyEvent true
+    }
+
+    when (keyEvent.keyCode) {
+        KeyEvent.KEYCODE_DPAD_UP,
+        KeyEvent.KEYCODE_SYSTEM_NAVIGATION_UP,
+        KeyEvent.KEYCODE_DPAD_DOWN,
+        KeyEvent.KEYCODE_SYSTEM_NAVIGATION_DOWN -> {
+            if (keyEvent.action == KeyEvent.ACTION_DOWN) videoPlayerState.showControls()
+            true
+        }
+        KeyEvent.KEYCODE_DPAD_CENTER,
+        KeyEvent.KEYCODE_ENTER,
+        KeyEvent.KEYCODE_NUMPAD_ENTER -> {
+            if (keyEvent.action == KeyEvent.ACTION_UP) {
+                if (player.isPlaying) player.pause() else player.play()
+                videoPlayerState.showControls()
+            }
+            true
+        }
+        else -> false
+    }
+}
 
 internal fun playerRootOwnsPlaybackKeys(
     overlayMode: VideoPlayerOverlayMode,
     skipPromptFocused: Boolean,
-): Boolean =
-    overlayMode != VideoPlayerOverlayMode.Controls &&
-        !skipPromptFocused
+): Boolean = overlayMode != VideoPlayerOverlayMode.Controls && !skipPromptFocused
 
 internal enum class PlayerFocusTarget {
     DefaultControls,
@@ -924,7 +917,7 @@ private fun Player.handleRemoteSeekKeyEvent(
                             seekBackIncrementMs = seekBackIncrement,
                             seekForwardIncrementMs = seekForwardIncrement,
                         ),
-                )
+                ),
             )
         KeyEvent.ACTION_UP -> controller.onKeyUp(direction)
     }

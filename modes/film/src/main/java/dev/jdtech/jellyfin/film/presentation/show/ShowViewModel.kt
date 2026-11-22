@@ -65,9 +65,7 @@ constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                loadGeneration.commit(generation) {
-                    _state.value = _state.value.copy(error = e)
-                }
+                loadGeneration.commit(generation) { _state.value = _state.value.copy(error = e) }
             }
         }
     }

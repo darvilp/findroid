@@ -79,12 +79,12 @@ interface ServerDatabaseDao {
     fun updateServerCurrentUser(serverId: String, userId: UUID)
 
     @Query(
-        "SELECT * FROM users WHERE id = (SELECT currentUserId FROM servers WHERE id = :serverId)"
+        "SELECT * FROM users WHERE id = (SELECT currentUserId FROM servers WHERE id = :serverId)",
     )
     fun getServerCurrentUser(serverId: String): User?
 
     @Query(
-        "SELECT * FROM serverAddresses WHERE id = (SELECT currentServerAddressId FROM servers WHERE id = :serverId)"
+        "SELECT * FROM serverAddresses WHERE id = (SELECT currentServerAddressId FROM servers WHERE id = :serverId)",
     )
     fun getServerCurrentAddress(serverId: String): ServerAddress?
 
@@ -95,7 +95,7 @@ interface ServerDatabaseDao {
     @Query("SELECT * FROM movies WHERE id = :id") fun getMovie(id: UUID): FindroidMovieDto
 
     @Query(
-        "SELECT * FROM movies JOIN sources ON movies.id = sources.itemId ORDER BY movies.name ASC"
+        "SELECT * FROM movies JOIN sources ON movies.id = sources.itemId ORDER BY movies.name ASC",
     )
     fun getMoviesAndSources(): Map<FindroidMovieDto, List<FindroidSourceDto>>
 
@@ -116,7 +116,7 @@ interface ServerDatabaseDao {
     @Query("DELETE FROM movies WHERE id = :id") fun deleteMovie(id: UUID)
 
     @Query(
-        "UPDATE userdata SET playbackPositionTicks = :playbackPositionTicks WHERE itemId = :itemId AND userid = :userId"
+        "UPDATE userdata SET playbackPositionTicks = :playbackPositionTicks WHERE itemId = :itemId AND userid = :userId",
     )
     fun setPlaybackPositionTicks(itemId: UUID, userId: UUID, playbackPositionTicks: Long)
 
@@ -176,7 +176,7 @@ interface ServerDatabaseDao {
     @Query("SELECT * FROM episodes WHERE id = :id") fun getEpisode(id: UUID): FindroidEpisodeDto
 
     @Query(
-        "SELECT * FROM episodes WHERE seriesId = :seriesId ORDER BY parentIndexNumber ASC, indexNumber ASC"
+        "SELECT * FROM episodes WHERE seriesId = :seriesId ORDER BY parentIndexNumber ASC, indexNumber ASC",
     )
     fun getEpisodesByShowId(seriesId: UUID): List<FindroidEpisodeDto>
 
@@ -184,12 +184,12 @@ interface ServerDatabaseDao {
     fun getEpisodesBySeasonId(seasonId: UUID): List<FindroidEpisodeDto>
 
     @Query(
-        "SELECT * FROM episodes WHERE serverId = :serverId ORDER BY seriesName ASC, parentIndexNumber ASC, indexNumber ASC"
+        "SELECT * FROM episodes WHERE serverId = :serverId ORDER BY seriesName ASC, parentIndexNumber ASC, indexNumber ASC",
     )
     fun getEpisodesByServerId(serverId: String): List<FindroidEpisodeDto>
 
     @Query(
-        "SELECT episodes.id, episodes.serverId, episodes.seasonId, episodes.seriesId, episodes.name, episodes.seriesName, episodes.overview, episodes.indexNumber, episodes.indexNumberEnd, episodes.parentIndexNumber, episodes.runtimeTicks, episodes.premiereDate, episodes.communityRating, episodes.chapters FROM episodes INNER JOIN userdata ON episodes.id = userdata.itemId WHERE serverId = :serverId AND playbackPositionTicks > 0 ORDER BY episodes.parentIndexNumber ASC, episodes.indexNumber ASC"
+        "SELECT episodes.id, episodes.serverId, episodes.seasonId, episodes.seriesId, episodes.name, episodes.seriesName, episodes.overview, episodes.indexNumber, episodes.indexNumberEnd, episodes.parentIndexNumber, episodes.runtimeTicks, episodes.premiereDate, episodes.communityRating, episodes.chapters FROM episodes INNER JOIN userdata ON episodes.id = userdata.itemId WHERE serverId = :serverId AND playbackPositionTicks > 0 ORDER BY episodes.parentIndexNumber ASC, episodes.indexNumber ASC",
     )
     fun getEpisodeResumeItems(serverId: String): List<FindroidEpisodeDto>
 
@@ -239,7 +239,7 @@ interface ServerDatabaseDao {
     fun getUserDataToBeSynced(userId: UUID, itemId: UUID): FindroidUserDataDto?
 
     @Query(
-        "UPDATE userdata SET toBeSynced = :toBeSynced WHERE itemId = :itemId AND userId = :userId"
+        "UPDATE userdata SET toBeSynced = :toBeSynced WHERE itemId = :itemId AND userId = :userId",
     )
     fun setUserDataToBeSynced(userId: UUID, itemId: UUID, toBeSynced: Boolean)
 

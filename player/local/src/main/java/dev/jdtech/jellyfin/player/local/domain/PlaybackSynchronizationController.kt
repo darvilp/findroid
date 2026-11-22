@@ -37,8 +37,7 @@ internal class PlaybackSynchronizationController {
 
     fun isInitializedFor(mediaId: String): Boolean = this.mediaId == mediaId && state != null
 
-    fun sessionToken(mediaId: String): Long? =
-        sessionToken.takeIf { isInitializedFor(mediaId) }
+    fun sessionToken(mediaId: String): Long? = sessionToken.takeIf { isInitializedFor(mediaId) }
 
     fun baseline(kind: MpvSynchronizationKind): Long = requireState().baseline(kind)
 

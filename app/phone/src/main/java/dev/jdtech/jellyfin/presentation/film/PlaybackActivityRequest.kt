@@ -4,9 +4,9 @@ import android.content.Context
 import android.content.Intent
 import dev.jdtech.jellyfin.PlayerActivity
 import dev.jdtech.jellyfin.film.presentation.PlaybackStart
-import dev.jdtech.jellyfin.film.presentation.shouldStartFromBeginning
 import dev.jdtech.jellyfin.film.presentation.season.SeasonAction
 import dev.jdtech.jellyfin.film.presentation.season.SeasonState
+import dev.jdtech.jellyfin.film.presentation.shouldStartFromBeginning
 import dev.jdtech.jellyfin.film.presentation.show.ShowAction
 import dev.jdtech.jellyfin.film.presentation.show.ShowState
 import org.jellyfin.sdk.model.api.BaseItemKind
@@ -41,11 +41,10 @@ internal fun seasonPlaybackActivityRequest(
 private fun playbackActivityRequest(
     playbackStart: PlaybackStart?,
     startFromBeginning: Boolean,
-): PlaybackActivityRequest? =
-    playbackStart?.let { start ->
-        PlaybackActivityRequest(
-            itemId = start.episode.id.toString(),
-            itemKind = BaseItemKind.EPISODE.serialName,
-            startFromBeginning = start.shouldStartFromBeginning(startFromBeginning),
-        )
-    }
+): PlaybackActivityRequest? = playbackStart?.let { start ->
+    PlaybackActivityRequest(
+        itemId = start.episode.id.toString(),
+        itemKind = BaseItemKind.EPISODE.serialName,
+        startFromBeginning = start.shouldStartFromBeginning(startFromBeginning),
+    )
+}

@@ -163,9 +163,7 @@ private fun SeasonScreenLayout(state: SeasonState, onAction: (SeasonAction) -> U
                         canPlay = state.playbackStart != null,
                         playbackStartPositionTicks =
                             state.playbackStart
-                                ?.takeUnless { playbackStart ->
-                                    playbackStart.startFromBeginning
-                                }
+                                ?.takeUnless { playbackStart -> playbackStart.startFromBeginning }
                                 ?.episode
                                 ?.playbackPositionTicks ?: 0L,
                     )

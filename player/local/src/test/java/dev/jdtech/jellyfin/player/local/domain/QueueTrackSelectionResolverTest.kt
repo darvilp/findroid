@@ -31,8 +31,10 @@ class QueueTrackSelectionResolverTest {
 
     @Test
     fun `forced subtitle does not continue onto a non-forced track`() {
-        val previous = subtitle(index = 2, language = "eng", title = "Forced", codec = "ass", forced = true)
-        val candidate = subtitle(index = 8, language = "eng", title = "Forced", codec = "ass", forced = false)
+        val previous =
+            subtitle(index = 2, language = "eng", title = "Forced", codec = "ass", forced = true)
+        val candidate =
+            subtitle(index = 8, language = "eng", title = "Forced", codec = "ass", forced = false)
         val fingerprint = QueueTrackFingerprint.fromStream(previous, listOf(previous))
 
         assertNull(QueueTrackSelectionResolver.resolve(fingerprint!!, listOf(candidate)))
@@ -50,15 +52,27 @@ class QueueTrackSelectionResolverTest {
     @Test
     fun `hearing impaired subtitle does not continue onto a standard track`() {
         val previous =
-            subtitle(index = 2, language = "eng", title = "English", codec = "ass", hearingImpaired = true)
+            subtitle(
+                index = 2,
+                language = "eng",
+                title = "English",
+                codec = "ass",
+                hearingImpaired = true,
+            )
         val candidate =
-            subtitle(index = 8, language = "eng", title = "English", codec = "ass", hearingImpaired = false)
+            subtitle(
+                index = 8,
+                language = "eng",
+                title = "English",
+                codec = "ass",
+                hearingImpaired = false,
+            )
 
         assertNull(
             QueueTrackSelectionResolver.resolve(
                 QueueTrackFingerprint.fromStream(previous, listOf(previous))!!,
                 listOf(candidate),
-            )
+            ),
         )
     }
 
@@ -95,7 +109,7 @@ class QueueTrackSelectionResolverTest {
             QueueTrackSelectionResolver.resolve(
                 QueueTrackFingerprint.fromStream(previous, listOf(previous))!!,
                 listOf(candidate),
-            )
+            ),
         )
     }
 

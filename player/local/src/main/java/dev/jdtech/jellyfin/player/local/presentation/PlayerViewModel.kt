@@ -12,9 +12,9 @@ import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
+import androidx.media3.common.Timeline
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
-import androidx.media3.common.Timeline
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
@@ -33,14 +33,13 @@ import dev.jdtech.jellyfin.player.local.domain.ChapterNavigationController
 import dev.jdtech.jellyfin.player.local.domain.ChapterNavigationDirection
 import dev.jdtech.jellyfin.player.local.domain.ChapterNavigationState
 import dev.jdtech.jellyfin.player.local.domain.ChapterSeekTarget
+import dev.jdtech.jellyfin.player.local.domain.InitialTrackApplicationState
 import dev.jdtech.jellyfin.player.local.domain.InitialTrackOverride
 import dev.jdtech.jellyfin.player.local.domain.InitialTrackOverrideResolver
-import dev.jdtech.jellyfin.player.local.domain.InitialTrackApplicationState
 import dev.jdtech.jellyfin.player.local.domain.MediaSegmentAutoSkipMode
 import dev.jdtech.jellyfin.player.local.domain.MediaSegmentPlayback
 import dev.jdtech.jellyfin.player.local.domain.MediaSegmentPlaybackDecision
 import dev.jdtech.jellyfin.player.local.domain.MediaSegmentPlaybackPreferences
-import dev.jdtech.jellyfin.player.local.domain.PlaylistManager
 import dev.jdtech.jellyfin.player.local.domain.PlaybackCompletionCoordinator
 import dev.jdtech.jellyfin.player.local.domain.PlaybackDetailsTarget
 import dev.jdtech.jellyfin.player.local.domain.PlaybackRestartController
@@ -49,6 +48,7 @@ import dev.jdtech.jellyfin.player.local.domain.PlaybackStopReport
 import dev.jdtech.jellyfin.player.local.domain.PlaybackSynchronizationController
 import dev.jdtech.jellyfin.player.local.domain.PlaybackSynchronizationSaveCoordinator
 import dev.jdtech.jellyfin.player.local.domain.PlaybackSynchronizationSaveOutcome
+import dev.jdtech.jellyfin.player.local.domain.PlaylistManager
 import dev.jdtech.jellyfin.player.local.domain.PlaylistNavigationController
 import dev.jdtech.jellyfin.player.local.domain.PlaylistNavigationDirection
 import dev.jdtech.jellyfin.player.local.domain.PlaylistNavigationState
@@ -107,7 +107,7 @@ constructor(
                 subtitleTracks = emptyList(),
                 fileLoaded = false,
                 synchronization = null,
-            )
+            ),
         )
     val uiState = _uiState.asStateFlow()
 
@@ -209,51 +209,53 @@ constructor(
                 .buildUponParameters()
                 .setTunnelingEnabled(true)
                 .setPreferredAudioLanguage(
-                    appPreferences.getValue(appPreferences.preferredAudioLanguage)
+                    appPreferences.getValue(appPreferences.preferredAudioLanguage),
                 )
                 .setPreferredTextLanguage(
-                    appPreferences.getValue(appPreferences.preferredSubtitleLanguage)
-                )
+                    appPreferences.getValue(appPreferences.preferredSubtitleLanguage),
+                ),
         )
 
-
         val playerBackend = appPreferences.getValue(appPreferences.playerBackend)
-        player = when (playerBackend) {
-            "exoplayer" -> {
-                val renderersFactory =
-                    DefaultRenderersFactory(application)
-                        .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
-                ExoPlayer.Builder(application, renderersFactory)
-                    .setAudioAttributes(audioAttributes, true)
-                    .setTrackSelector(trackSelector)
-                    .setSeekBackIncrementMs(
-                        appPreferences.getValue(appPreferences.playerSeekBackInc)
-                    )
-                    .setSeekForwardIncrementMs(
-                        appPreferences.getValue(appPreferences.playerSeekForwardInc)
-                    )
-                    .setPauseAtEndOfMediaItems(true)
-                    .build()
-            }
-            "mpv" -> {
-                MPVPlayer.Builder(application)
-                    .setAudioAttributes(audioAttributes, true)
-                    .setTrackSelectionParameters(trackSelector.parameters)
-                    .setSeekBackIncrementMs(
-                        appPreferences.getValue(appPreferences.playerSeekBackInc)
-                    )
-                    .setSeekForwardIncrementMs(
-                        appPreferences.getValue(appPreferences.playerSeekForwardInc)
-                    )
-                    .setPauseAtEndOfMediaItems(true)
-                    .setVideoOutput(appPreferences.getValue(appPreferences.playerMpvVo))
-                    .setAudioOutput(appPreferences.getValue(appPreferences.playerMpvAo))
-                    .setHwDec(appPreferences.getValue(appPreferences.playerMpvHwdec))
-                    .build()
-            }
+        player =
+            when (playerBackend) {
+                "exoplayer" -> {
+                    val renderersFactory =
+                        DefaultRenderersFactory(application)
+                            .setExtensionRendererMode(
+                                DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON,
+                            )
+                    ExoPlayer.Builder(application, renderersFactory)
+                        .setAudioAttributes(audioAttributes, true)
+                        .setTrackSelector(trackSelector)
+                        .setSeekBackIncrementMs(
+                            appPreferences.getValue(appPreferences.playerSeekBackInc),
+                        )
+                        .setSeekForwardIncrementMs(
+                            appPreferences.getValue(appPreferences.playerSeekForwardInc),
+                        )
+                        .setPauseAtEndOfMediaItems(true)
+                        .build()
+                }
+                "mpv" -> {
+                    MPVPlayer.Builder(application)
+                        .setAudioAttributes(audioAttributes, true)
+                        .setTrackSelectionParameters(trackSelector.parameters)
+                        .setSeekBackIncrementMs(
+                            appPreferences.getValue(appPreferences.playerSeekBackInc),
+                        )
+                        .setSeekForwardIncrementMs(
+                            appPreferences.getValue(appPreferences.playerSeekForwardInc),
+                        )
+                        .setPauseAtEndOfMediaItems(true)
+                        .setVideoOutput(appPreferences.getValue(appPreferences.playerMpvVo))
+                        .setAudioOutput(appPreferences.getValue(appPreferences.playerMpvAo))
+                        .setHwDec(appPreferences.getValue(appPreferences.playerMpvHwdec))
+                        .build()
+                }
 
-            else -> throw RuntimeException("$playerBackend is not a valid player backend")
-        }
+                else -> throw RuntimeException("$playerBackend is not a valid player backend")
+            }
         (player as? MpvSynchronization)?.let {
             mpvSynchronization = it
             it.addFileLoadedListener(onMpvFileLoaded)
@@ -341,17 +343,16 @@ constructor(
 
     private fun PlayerItem.toMediaItem(): MediaItem {
         val streamUrl = mediaSourceUri
-        val mediaSubtitles =
-            externalSubtitles.map { externalSubtitle ->
-                MediaItem.SubtitleConfiguration.Builder(externalSubtitle.uri)
-                    .setId(externalSubtitle.streamIndex?.toString())
-                    .setLabel(
-                        externalSubtitle.title.ifBlank { application.getString(R.string.external) }
-                    )
-                    .setMimeType(externalSubtitle.mimeType)
-                    .setLanguage(externalSubtitle.language)
-                    .build()
-            }
+        val mediaSubtitles = externalSubtitles.map { externalSubtitle ->
+            MediaItem.SubtitleConfiguration.Builder(externalSubtitle.uri)
+                .setId(externalSubtitle.streamIndex?.toString())
+                .setLabel(
+                    externalSubtitle.title.ifBlank { application.getString(R.string.external) },
+                )
+                .setMimeType(externalSubtitle.mimeType)
+                .setLanguage(externalSubtitle.language)
+                .build()
+        }
 
         Timber.d("Stream url: $streamUrl")
         val mediaItem =
@@ -459,8 +460,7 @@ constructor(
             it.copy(
                 currentSegment = null,
                 currentChapters = emptyList(),
-                currentDetailsTarget =
-                    transitionedItemId?.let(playlistManager::getDetailsTarget),
+                currentDetailsTarget = transitionedItemId?.let(playlistManager::getDetailsTarget),
                 playlistNavigation = playlistNavigationController.state(playlistNavigationTarget),
             )
         }
@@ -556,8 +556,7 @@ constructor(
     private fun navigatePlaylist(direction: PlaylistNavigationDirection): Boolean =
         playlistNavigationController.navigate(direction, playlistNavigationTarget)
 
-    fun goToPreviousEpisode(): Boolean =
-        navigatePlaylist(PlaylistNavigationDirection.Previous)
+    fun goToPreviousEpisode(): Boolean = navigatePlaylist(PlaylistNavigationDirection.Previous)
 
     fun goToNextEpisode(): Boolean = navigatePlaylist(PlaylistNavigationDirection.Next)
 
@@ -591,7 +590,7 @@ constructor(
     @Suppress("OVERRIDE_DEPRECATION")
     override fun onPositionDiscontinuity(reason: Int) {
         chapterNavigationController.onPositionDiscontinuity(
-            isSeek = reason == Player.DISCONTINUITY_REASON_SEEK
+            isSeek = reason == Player.DISCONTINUITY_REASON_SEEK,
         )
     }
 
@@ -683,7 +682,7 @@ constructor(
             player.trackSelectionParameters
                 .buildUpon()
                 .setOverrideForType(
-                    TrackSelectionOverride(group.mediaTrackGroup, trackIndex)
+                    TrackSelectionOverride(group.mediaTrackGroup, trackIndex),
                 )
                 .setTrackTypeDisabled(trackType, false)
                 .build()
@@ -711,13 +710,12 @@ constructor(
                 runtimeTracks = runtimeTracks,
             )
         val resolvedTypes = overrides.mapTo(mutableSetOf()) { it.trackType }
-        val unresolved =
-            buildMap {
-                item.initialAudioStreamIndex?.let { put(C.TRACK_TYPE_AUDIO, it) }
-                item.initialSubtitleStreamIndex
-                    ?.takeUnless { it == InitialTrackSelection.SUBTITLE_OFF }
-                    ?.let { put(C.TRACK_TYPE_TEXT, it) }
-            }
+        val unresolved = buildMap {
+            item.initialAudioStreamIndex?.let { put(C.TRACK_TYPE_AUDIO, it) }
+            item.initialSubtitleStreamIndex
+                ?.takeUnless { it == InitialTrackSelection.SUBTITLE_OFF }
+                ?.let { put(C.TRACK_TYPE_TEXT, it) }
+        }
         unresolved
             .filterKeys {
                 it !in resolvedTypes &&
@@ -736,28 +734,31 @@ constructor(
         overrides
             .filter { !initialTrackApplicationState.isApplied(itemId, it.trackType) }
             .forEach { override ->
-            when (override) {
-                is InitialTrackOverride.Select -> {
-                    if (canApplyExactTrackOverride(override.track)) {
+                when (override) {
+                    is InitialTrackOverride.Select -> {
+                        if (canApplyExactTrackOverride(override.track)) {
+                            // Track parameter updates may synchronously emit another callback.
+                            initialTrackApplicationState.markApplied(itemId, override.trackType)
+                            applyExactTrackOverride(override.track)
+                            rememberRuntimeTrackSelection(
+                                trackType = override.track.type,
+                                selectedTrack = override.track,
+                            )
+                            refreshAdjacentTrackSelections()
+                        }
+                    }
+                    is InitialTrackOverride.Disable -> {
                         // Track parameter updates may synchronously emit another callback.
                         initialTrackApplicationState.markApplied(itemId, override.trackType)
-                        applyExactTrackOverride(override.track)
+                        disableTrackType(override.trackType)
                         rememberRuntimeTrackSelection(
-                            trackType = override.track.type,
-                            selectedTrack = override.track,
+                            trackType = override.trackType,
+                            selectedTrack = null,
                         )
                         refreshAdjacentTrackSelections()
                     }
                 }
-                is InitialTrackOverride.Disable -> {
-                    // Track parameter updates may synchronously emit another callback.
-                    initialTrackApplicationState.markApplied(itemId, override.trackType)
-                    disableTrackType(override.trackType)
-                    rememberRuntimeTrackSelection(trackType = override.trackType, selectedTrack = null)
-                    refreshAdjacentTrackSelections()
-                }
             }
-        }
     }
 
     private val InitialTrackOverride.trackType: Int
@@ -778,7 +779,7 @@ constructor(
             player.trackSelectionParameters
                 .buildUpon()
                 .setOverrideForType(
-                    TrackSelectionOverride(group.mediaTrackGroup, track.trackIndex)
+                    TrackSelectionOverride(group.mediaTrackGroup, track.trackIndex),
                 )
                 .setTrackTypeDisabled(track.type, false)
                 .build()
@@ -810,22 +811,22 @@ constructor(
                 .filter { it in 0 until player.mediaItemCount }
                 .mapNotNull { player.getMediaItemAt(it).mediaId.toUuidOrNull() }
         adjacentTrackRefreshJob?.cancel()
-        adjacentTrackRefreshJob =
-            viewModelScope.launch {
-                adjacentItemIds.forEach { itemId ->
-                    val rebuilt = playlistManager.rebuildPlayerItem(itemId) ?: return@forEach
-                    if (player.currentMediaItem?.mediaId != anchorMediaId) return@launch
-                    val timelineIndex =
-                        (0 until player.mediaItemCount).firstOrNull {
-                            player.getMediaItemAt(it).mediaId == itemId.toString()
-                        } ?: return@forEach
-                    items.indexOfFirst { it.itemId == itemId }
-                        .takeIf { it >= 0 }
-                        ?.let { items[it] = rebuilt }
-                    initialTrackApplicationState.reset(itemId)
-                    player.replaceMediaItem(timelineIndex, rebuilt.toMediaItem())
-                }
+        adjacentTrackRefreshJob = viewModelScope.launch {
+            adjacentItemIds.forEach { itemId ->
+                val rebuilt = playlistManager.rebuildPlayerItem(itemId) ?: return@forEach
+                if (player.currentMediaItem?.mediaId != anchorMediaId) return@launch
+                val timelineIndex =
+                    (0 until player.mediaItemCount).firstOrNull {
+                        player.getMediaItemAt(it).mediaId == itemId.toString()
+                    } ?: return@forEach
+                items
+                    .indexOfFirst { it.itemId == itemId }
+                    .takeIf { it >= 0 }
+                    ?.let { items[it] = rebuilt }
+                initialTrackApplicationState.reset(itemId)
+                player.replaceMediaItem(timelineIndex, rebuilt.toMediaItem())
             }
+        }
     }
 
     private fun updateTrackOptions(tracks: Tracks) {
@@ -847,12 +848,12 @@ constructor(
             when (trackType) {
                 C.TRACK_TYPE_AUDIO ->
                     state.copy(
-                        audioTracks = state.audioTracks.withSelectedTrack(groupIndex, trackIndex)
+                        audioTracks = state.audioTracks.withSelectedTrack(groupIndex, trackIndex),
                     )
                 C.TRACK_TYPE_TEXT ->
                     state.copy(
                         subtitleTracks =
-                            state.subtitleTracks.withSelectedTrack(groupIndex, trackIndex)
+                            state.subtitleTracks.withSelectedTrack(groupIndex, trackIndex),
                     )
                 else -> state
             }
@@ -883,8 +884,7 @@ constructor(
         if (!hasInitializedSynchronization() || !canEditSynchronization(kind)) return false
         val effectiveMs = playbackSynchronizationController.effective(kind)
         val mediaId = player.currentMediaItem?.mediaId ?: return false
-        val sessionToken =
-            playbackSynchronizationController.sessionToken(mediaId) ?: return false
+        val sessionToken = playbackSynchronizationController.sessionToken(mediaId) ?: return false
         playbackSynchronizationSaveCoordinator.enqueue(
             kind = kind,
             valueMs = effectiveMs,
@@ -896,8 +896,7 @@ constructor(
 
     private fun onSynchronizationSaveOutcome(outcome: PlaybackSynchronizationSaveOutcome) {
         if (
-            playbackSynchronizationController.sessionToken(outcome.mediaId) !=
-                outcome.sessionToken
+            playbackSynchronizationController.sessionToken(outcome.mediaId) != outcome.sessionToken
         ) {
             return
         }
@@ -932,15 +931,13 @@ constructor(
         val observed =
             MpvSynchronizationDefaults(
                 audioMs =
-                    mpvSynchronization.getSynchronization(MpvSynchronizationKind.AUDIO)
-                        ?: return,
+                    mpvSynchronization.getSynchronization(MpvSynchronizationKind.AUDIO) ?: return,
                 subtitleMs =
                     mpvSynchronization.getSynchronization(MpvSynchronizationKind.SUBTITLE)
                         ?: return,
             )
         val defaults = mpvSynchronizationConfigStore.readDefaults().getOrElse { observed }
-        val effective =
-            playbackSynchronizationController.onFileLoaded(mediaId, defaults, observed)
+        val effective = playbackSynchronizationController.onFileLoaded(mediaId, defaults, observed)
         mpvSynchronization.setSynchronization(MpvSynchronizationKind.AUDIO, effective.audioMs)
         mpvSynchronization.setSynchronization(MpvSynchronizationKind.SUBTITLE, effective.subtitleMs)
         updateSynchronizationUiState()
@@ -954,9 +951,11 @@ constructor(
 
     private fun hasInitializedSynchronization(): Boolean =
         ::mpvSynchronization.isInitialized &&
-            player.currentMediaItem?.mediaId?.let(
-                playbackSynchronizationController::isInitializedFor
-            ) == true
+            player.currentMediaItem
+                ?.mediaId
+                ?.let(
+                    playbackSynchronizationController::isInitializedFor,
+                ) == true
 
     private fun updateSynchronizationUiState() {
         if (!::mpvSynchronization.isInitialized) return
@@ -970,23 +969,22 @@ constructor(
                     PlaybackSynchronizationUiState(
                         audioBaselineMs =
                             playbackSynchronizationController.baseline(
-                                MpvSynchronizationKind.AUDIO
+                                MpvSynchronizationKind.AUDIO,
                             ),
                         audioEffectiveMs =
                             playbackSynchronizationController.effective(
-                                MpvSynchronizationKind.AUDIO
+                                MpvSynchronizationKind.AUDIO,
                             ),
                         subtitleBaselineMs =
                             playbackSynchronizationController.baseline(
-                                MpvSynchronizationKind.SUBTITLE
+                                MpvSynchronizationKind.SUBTITLE,
                             ),
                         subtitleEffectiveMs =
                             playbackSynchronizationController.effective(
-                                MpvSynchronizationKind.SUBTITLE
+                                MpvSynchronizationKind.SUBTITLE,
                             ),
-                        canEditSubtitle =
-                            canEditSynchronization(MpvSynchronizationKind.SUBTITLE),
-                    )
+                        canEditSubtitle = canEditSynchronization(MpvSynchronizationKind.SUBTITLE),
+                    ),
             )
         }
     }
@@ -1026,12 +1024,11 @@ constructor(
                 override fun seekTo(positionMs: Long) = player.seekTo(positionMs)
 
                 override fun play() = player.play()
-            }
+            },
         )
     }
 
-    fun isHardwareDecodingActive(): Boolean? =
-        (player as? MPVPlayer)?.isHardwareDecodingActive()
+    fun isHardwareDecodingActive(): Boolean? = (player as? MPVPlayer)?.isHardwareDecodingActive()
 
     fun setHardwareDecodingEnabled(enabled: Boolean) {
         (player as? MPVPlayer)?.setHardwareDecodingEnabled(enabled)
@@ -1081,7 +1078,7 @@ constructor(
                 ceil(
                         trickplayInfo.thumbnailCount
                             .toDouble()
-                            .div(trickplayInfo.tileWidth * trickplayInfo.tileHeight)
+                            .div(trickplayInfo.tileWidth * trickplayInfo.tileHeight),
                     )
                     .toInt()
             val bitmaps = mutableListOf<Bitmap>()
@@ -1154,7 +1151,7 @@ constructor(
     }
 
     fun chapterNavigationState(
-        currentPositionMs: Long = player.currentPosition
+        currentPositionMs: Long = player.currentPosition,
     ): ChapterNavigationState =
         chapterNavigationController.state(
             chapters = uiState.value.currentChapters,

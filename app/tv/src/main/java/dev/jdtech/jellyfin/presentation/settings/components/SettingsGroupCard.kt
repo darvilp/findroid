@@ -25,8 +25,8 @@ import dev.jdtech.jellyfin.settings.domain.models.Preference as PreferenceBacken
 import dev.jdtech.jellyfin.settings.presentation.models.Preference
 import dev.jdtech.jellyfin.settings.presentation.models.PreferenceCategory
 import dev.jdtech.jellyfin.settings.presentation.models.PreferenceGroup
-import dev.jdtech.jellyfin.settings.presentation.models.PreferenceMultiSelect
 import dev.jdtech.jellyfin.settings.presentation.models.PreferenceMpvSynchronization
+import dev.jdtech.jellyfin.settings.presentation.models.PreferenceMultiSelect
 import dev.jdtech.jellyfin.settings.presentation.models.PreferenceSelect
 import dev.jdtech.jellyfin.settings.presentation.models.PreferenceSwitch
 import dev.jdtech.jellyfin.settings.presentation.settings.SettingsAction
@@ -69,8 +69,8 @@ fun SettingsGroupCard(
                                 onClick = {
                                     onAction(
                                         SettingsAction.OnUpdate(
-                                            preference.copy(value = !preference.value)
-                                        )
+                                            preference.copy(value = !preference.value),
+                                        ),
                                     )
                                 },
                                 modifier =
@@ -104,7 +104,7 @@ fun SettingsGroupCard(
                                         SettingsAction.OnUpdateMpvSynchronization(
                                             preference.kind,
                                             value,
-                                        )
+                                        ),
                                     )
                                 },
                                 modifier =

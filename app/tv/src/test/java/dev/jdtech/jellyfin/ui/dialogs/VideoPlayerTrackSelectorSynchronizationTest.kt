@@ -8,9 +8,17 @@ import org.junit.Test
 class VideoPlayerTrackSelectorSynchronizationTest {
     @Test
     fun `synchronization entry is available for audio and subtitle tracks only with callback`() {
-        assertTrue(trackDialogShowsSynchronization(C.TRACK_TYPE_AUDIO, synchronizationAvailable = true))
-        assertTrue(trackDialogShowsSynchronization(C.TRACK_TYPE_TEXT, synchronizationAvailable = true))
-        assertFalse(trackDialogShowsSynchronization(C.TRACK_TYPE_VIDEO, synchronizationAvailable = true))
-        assertFalse(trackDialogShowsSynchronization(C.TRACK_TYPE_AUDIO, synchronizationAvailable = false))
+        assertTrue(
+            trackDialogShowsSynchronization(C.TRACK_TYPE_AUDIO, synchronizationAvailable = true),
+        )
+        assertTrue(
+            trackDialogShowsSynchronization(C.TRACK_TYPE_TEXT, synchronizationAvailable = true),
+        )
+        assertFalse(
+            trackDialogShowsSynchronization(C.TRACK_TYPE_VIDEO, synchronizationAvailable = true),
+        )
+        assertFalse(
+            trackDialogShowsSynchronization(C.TRACK_TYPE_AUDIO, synchronizationAvailable = false),
+        )
     }
 }

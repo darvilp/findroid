@@ -3,9 +3,9 @@ package dev.jdtech.jellyfin.presentation.film
 import dev.jdtech.jellyfin.PlayerRoute
 import dev.jdtech.jellyfin.film.presentation.PlaybackStart
 import dev.jdtech.jellyfin.film.presentation.hasMeaningfulSavedProgress
-import dev.jdtech.jellyfin.film.presentation.shouldStartFromBeginning
 import dev.jdtech.jellyfin.film.presentation.movie.MovieAction
 import dev.jdtech.jellyfin.film.presentation.season.SeasonState
+import dev.jdtech.jellyfin.film.presentation.shouldStartFromBeginning
 import dev.jdtech.jellyfin.film.presentation.show.ShowAction
 import dev.jdtech.jellyfin.film.presentation.show.ShowState
 import dev.jdtech.jellyfin.models.InitialTrackSelection
@@ -56,11 +56,10 @@ internal fun containerPlaybackRoute(
     playbackStart: PlaybackStart?,
     startFromBeginning: Boolean,
     initialTrackSelection: InitialTrackSelection? = null,
-): PlayerRoute? =
-    playbackStart?.let { start ->
-        PlayerRoute.episode(
-            itemId = start.episode.id,
-            startFromBeginning = start.shouldStartFromBeginning(startFromBeginning),
-            initialTrackSelection = initialTrackSelection,
-        )
-    }
+): PlayerRoute? = playbackStart?.let { start ->
+    PlayerRoute.episode(
+        itemId = start.episode.id,
+        startFromBeginning = start.shouldStartFromBeginning(startFromBeginning),
+        initialTrackSelection = initialTrackSelection,
+    )
+}

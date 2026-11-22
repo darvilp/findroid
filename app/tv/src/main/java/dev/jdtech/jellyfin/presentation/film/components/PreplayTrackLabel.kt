@@ -26,19 +26,19 @@ fun PlaybackTrackChoice.preplayLabel(
             else -> "$languageLabel — $meaningfulTitle"
         }
     val channelLabel = channelLayout?.displayChannelLayout()
-    val technical =
-        buildList {
-                codec?.uppercase(locale)?.takeIf(String::isNotBlank)?.let(::add)
-                channelLabel?.let(::add)
-                if (isExternal) add("External")
-                if (isDefault) add("Default")
-                if (isForced) add("Forced")
-                if (isHearingImpaired) add("SDH")
-            }
-            .distinctBy { it.lowercase(locale) }
-            .filterNot { primary.contains(it, ignoreCase = true) }
+    val technical = buildList {
+        codec?.uppercase(locale)?.takeIf(String::isNotBlank)?.let(::add)
+        channelLabel?.let(::add)
+        if (isExternal) add("External")
+        if (isDefault) add("Default")
+        if (isForced) add("Forced")
+        if (isHearingImpaired) add("SDH")
+    }
+        .distinctBy { it.lowercase(locale) }
+        .filterNot { primary.contains(it, ignoreCase = true) }
 
-    val compactBase = languageLabel ?: meaningfulTitle ?: displayTitle.takeIf(String::isNotBlank) ?: fallback
+    val compactBase =
+        languageLabel ?: meaningfulTitle ?: displayTitle.takeIf(String::isNotBlank) ?: fallback
     val compactMetadata =
         when (kind) {
             PreplayTrackKind.Audio -> listOfNotNull(channelLabel)

@@ -26,8 +26,8 @@ import dev.jdtech.jellyfin.settings.presentation.models.PreferenceFileEdit
 import dev.jdtech.jellyfin.settings.presentation.models.PreferenceGroup
 import dev.jdtech.jellyfin.settings.presentation.models.PreferenceIntInput
 import dev.jdtech.jellyfin.settings.presentation.models.PreferenceLongInput
-import dev.jdtech.jellyfin.settings.presentation.models.PreferenceMultiSelect
 import dev.jdtech.jellyfin.settings.presentation.models.PreferenceMpvSynchronization
+import dev.jdtech.jellyfin.settings.presentation.models.PreferenceMultiSelect
 import dev.jdtech.jellyfin.settings.presentation.models.PreferenceSelect
 import dev.jdtech.jellyfin.settings.presentation.models.PreferenceSwitch
 import dev.jdtech.jellyfin.settings.presentation.settings.SettingsAction
@@ -50,7 +50,9 @@ fun SettingsGroupCard(
         Card(
             modifier = modifier,
             colors =
-                CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                ),
         ) {
             group.preferences.fastForEachIndexed { index, preference ->
                 when (preference) {
@@ -65,8 +67,8 @@ fun SettingsGroupCard(
                             onClick = {
                                 onAction(
                                     SettingsAction.OnUpdate(
-                                        preference.copy(value = !preference.value)
-                                    )
+                                        preference.copy(value = !preference.value),
+                                    ),
                                 )
                                 preference.onClick(preference)
                             },
@@ -114,7 +116,7 @@ fun SettingsGroupCard(
                                     SettingsAction.OnUpdateMpvSynchronization(
                                         preference.kind,
                                         value,
-                                    )
+                                    ),
                                 )
                             },
                             modifier = Modifier.fillMaxWidth(),

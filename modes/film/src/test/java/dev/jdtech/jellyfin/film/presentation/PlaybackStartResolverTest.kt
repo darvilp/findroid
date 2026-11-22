@@ -100,7 +100,7 @@ class PlaybackStartResolverTest {
                                 id = seasonId,
                                 seriesId = seriesId,
                                 indexNumber = 1,
-                            )
+                            ),
                         ),
                 )
 
@@ -145,7 +145,7 @@ class PlaybackStartResolverTest {
                             specialsId to listOf(special),
                             seasonOneId to listOf(unavailableGap),
                             seasonTwoId to listOf(nextRegular),
-                        )
+                        ),
                 )
 
             val start =
@@ -224,7 +224,7 @@ class PlaybackStartResolverTest {
                                 id = seasonId,
                                 seriesId = seriesId,
                                 indexNumber = 1,
-                            )
+                            ),
                         ),
                 )
 
@@ -232,40 +232,39 @@ class PlaybackStartResolverTest {
     }
 
     @Test
-    fun `series resolution returns no target when canonical episode loading fails`() =
-        runBlocking {
-            val seriesId = UUID.fromString("00000000-0000-0000-0000-000000000050")
-            val seasonId = UUID.fromString("00000000-0000-0000-0000-000000000051")
-            val nextUp =
-                dummyEpisode.copy(
-                    id = UUID.fromString("00000000-0000-0000-0000-000000000052"),
+    fun `series resolution returns no target when canonical episode loading fails`() = runBlocking {
+        val seriesId = UUID.fromString("00000000-0000-0000-0000-000000000050")
+        val seasonId = UUID.fromString("00000000-0000-0000-0000-000000000051")
+        val nextUp =
+            dummyEpisode.copy(
+                id = UUID.fromString("00000000-0000-0000-0000-000000000052"),
+                seriesId = seriesId,
+                seasonId = seasonId,
+                played = false,
+                playbackPositionTicks = 0L,
+            )
+        val source =
+            FakePlaybackStartSource(
+                nextUpEpisode = nextUp,
+                episodeFailure = IllegalStateException("episodes failed"),
+            )
+
+        val start =
+            PlaybackStartResolver(source)
+                .resolveSeries(
                     seriesId = seriesId,
-                    seasonId = seasonId,
-                    played = false,
-                    playbackPositionTicks = 0L,
-                )
-            val source =
-                FakePlaybackStartSource(
-                    nextUpEpisode = nextUp,
-                    episodeFailure = IllegalStateException("episodes failed"),
-                )
-
-            val start =
-                PlaybackStartResolver(source)
-                    .resolveSeries(
-                        seriesId = seriesId,
-                        seasons =
-                            listOf(
-                                dummySeason.copy(
-                                    id = seasonId,
-                                    seriesId = seriesId,
-                                    indexNumber = 1,
-                                )
+                    seasons =
+                        listOf(
+                            dummySeason.copy(
+                                id = seasonId,
+                                seriesId = seriesId,
+                                indexNumber = 1,
                             ),
-                    )
+                        ),
+                )
 
-            assertNull(start)
-        }
+        assertNull(start)
+    }
 
     @Test
     fun `series resolution ignores candidates outside the requested series`() = runBlocking {
@@ -305,7 +304,7 @@ class PlaybackStartResolverTest {
                                 id = seasonId,
                                 seriesId = seriesId,
                                 indexNumber = 1,
-                            )
+                            ),
                         ),
                 )
 

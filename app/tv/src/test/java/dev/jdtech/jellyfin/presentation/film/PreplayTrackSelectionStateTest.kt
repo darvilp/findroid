@@ -40,13 +40,12 @@ class PreplayTrackSelectionStateTest {
 
     @Test
     fun `selection snapshot is rejected for a different reference episode`() {
-        val state =
-            PreplayTrackSelectionState(choices = choices, selectedAudioStreamIndex = 2)
+        val state = PreplayTrackSelectionState(choices = choices, selectedAudioStreamIndex = 2)
 
         assertNull(
             state.initialTrackSelection(
-                UUID.fromString("11111111-2222-3333-4444-555555555555")
-            )
+                UUID.fromString("11111111-2222-3333-4444-555555555555"),
+            ),
         )
     }
 

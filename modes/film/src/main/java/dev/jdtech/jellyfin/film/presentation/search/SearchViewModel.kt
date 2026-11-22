@@ -21,8 +21,7 @@ internal constructor(
     private val getSearchItems: suspend (String) -> List<FindroidItem>,
     private val searchScope: CoroutineScope?,
 ) : ViewModel() {
-    @Inject
-    constructor(repository: JellyfinRepository) : this(repository::getSearchItems, null)
+    @Inject constructor(repository: JellyfinRepository) : this(repository::getSearchItems, null)
 
     private val _state = MutableStateFlow(SearchState())
     val state = _state.asStateFlow()

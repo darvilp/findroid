@@ -24,7 +24,7 @@ class PlayerControlFocusPolicyTest {
                 skipPromptMayTakeFocus = false,
                 focusedControl = PlayerControl.SeekBar,
                 availableControls = stableControls,
-            )
+            ),
         )
     }
 
@@ -51,7 +51,7 @@ class PlayerControlFocusPolicyTest {
                 skipPromptMayTakeFocus = false,
                 focusedControl = PlayerControl.SeekBar,
                 availableControls = stableControls,
-            )
+            ),
         )
     }
 
@@ -92,7 +92,7 @@ class PlayerControlFocusPolicyTest {
                 skipPromptMayTakeFocus = false,
                 focusedControl = PlayerControl.Audio,
                 availableControls = stableControls,
-            )
+            ),
         )
     }
 

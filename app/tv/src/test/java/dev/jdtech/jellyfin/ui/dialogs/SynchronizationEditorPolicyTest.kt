@@ -16,7 +16,10 @@ class SynchronizationEditorPolicyTest {
         state = state.decrement()
         assertEquals(999L, state.valueMs)
 
-        state = SynchronizationEditorState.from(50L).copy(selectedField = SynchronizationField.HUNDRED_MILLISECONDS).decrement()
+        state =
+            SynchronizationEditorState.from(50L)
+                .copy(selectedField = SynchronizationField.HUNDRED_MILLISECONDS)
+                .decrement()
         assertEquals(0L, state.valueMs)
         assertEquals(
             "Synchronized",
@@ -26,9 +29,27 @@ class SynchronizationEditorPolicyTest {
 
     @Test
     fun `direction toggles sign and zero stays synchronized`() {
-        assertEquals(-1_500L, SynchronizationEditorState.from(1_500L).copy(selectedField = SynchronizationField.DIRECTION).increment().valueMs)
-        assertEquals(1_500L, SynchronizationEditorState.from(-1_500L).copy(selectedField = SynchronizationField.DIRECTION).decrement().valueMs)
-        assertEquals(0L, SynchronizationEditorState.from(0L).copy(selectedField = SynchronizationField.DIRECTION).increment().valueMs)
+        assertEquals(
+            -1_500L,
+            SynchronizationEditorState.from(1_500L)
+                .copy(selectedField = SynchronizationField.DIRECTION)
+                .increment()
+                .valueMs,
+        )
+        assertEquals(
+            1_500L,
+            SynchronizationEditorState.from(-1_500L)
+                .copy(selectedField = SynchronizationField.DIRECTION)
+                .decrement()
+                .valueMs,
+        )
+        assertEquals(
+            0L,
+            SynchronizationEditorState.from(0L)
+                .copy(selectedField = SynchronizationField.DIRECTION)
+                .increment()
+                .valueMs,
+        )
     }
 
     @Test
@@ -66,8 +87,7 @@ class SynchronizationEditorPolicyTest {
     fun `back completion stays armed until release and completes once`() {
         var state = SynchronizationEditorBackState()
 
-        var transition =
-            state.onKey(keyCode = 4, isDown = true, repeatCount = 0)
+        var transition = state.onKey(keyCode = 4, isDown = true, repeatCount = 0)
         state = transition.state
         assertTrue(state.completionArmed)
         assertEquals(SynchronizationEditorAction.NONE, transition.action)
@@ -131,7 +151,6 @@ class SynchronizationEditorPolicyTest {
         )
     }
 
-
     @Test
     fun `long minimum displays earlier with a positive magnitude and valid digits`() {
         assertEquals(
@@ -162,7 +181,7 @@ class SynchronizationEditorPolicyTest {
                 SynchronizationEditorState.from(Long.MIN_VALUE)
                     .copy(selectedField = SynchronizationField.DIRECTION),
                 increase = true,
-            )
+            ),
         )
 
         assertEquals(

@@ -110,7 +110,10 @@ class PlaybackSynchronizationSaveCoordinatorTest {
         firstWriteCanFinish.complete(Unit)
         runCurrent()
 
-        assertEquals(false, (outcomes[0] as PlaybackSynchronizationSaveOutcome.Failure).shouldNotify)
+        assertEquals(
+            false,
+            (outcomes[0] as PlaybackSynchronizationSaveOutcome.Failure).shouldNotify,
+        )
         assertEquals(true, (outcomes[1] as PlaybackSynchronizationSaveOutcome.Failure).shouldNotify)
     }
 

@@ -77,7 +77,8 @@ class MpvSynchronizationConfigStoreTest {
 
     @Test
     fun `read defaults uses storage recovered content`() {
-        val storage = RecoveringConfigStorage(recoveredText = "audio-delay=0.125\nsub-delay=-0.050\n")
+        val storage =
+            RecoveringConfigStorage(recoveredText = "audio-delay=0.125\nsub-delay=-0.050\n")
         val store = MpvSynchronizationConfigStore(storage)
 
         assertEquals(

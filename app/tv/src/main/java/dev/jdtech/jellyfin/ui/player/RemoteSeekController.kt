@@ -31,8 +31,7 @@ internal class RemoteSeekController {
             when (direction) {
                 RemoteSeekDirection.Backward -> playback.seekBackIncrementMs
                 RemoteSeekDirection.Forward -> playback.seekForwardIncrementMs
-            }
-                .coerceAtLeast(0L)
+            }.coerceAtLeast(0L)
         val multiplier = accelerationMultiplier(normalizedEventTimeMs - holdStartedAtMs)
         val acceleratedStepMs = baseIncrementMs.saturatedMultiply(multiplier)
         val maximumStepMs = maxOf(baseIncrementMs, MAXIMUM_ACCELERATED_STEP_MS)
@@ -44,8 +43,7 @@ internal class RemoteSeekController {
             }
 
         return when (direction) {
-            RemoteSeekDirection.Backward ->
-                if (stepMs >= positionMs) 0L else positionMs - stepMs
+            RemoteSeekDirection.Backward -> if (stepMs >= positionMs) 0L else positionMs - stepMs
             RemoteSeekDirection.Forward ->
                 positionMs.saturatedAdd(stepMs).let { target ->
                     durationMs?.let(target::coerceAtMost) ?: target
@@ -69,8 +67,7 @@ internal class RemoteSeekController {
         }
 
     private fun Long.saturatedMultiply(multiplier: Long): Long =
-        if (this == 0L || this <= Long.MAX_VALUE / multiplier) this * multiplier
-        else Long.MAX_VALUE
+        if (this == 0L || this <= Long.MAX_VALUE / multiplier) this * multiplier else Long.MAX_VALUE
 
     private fun Long.saturatedAdd(value: Long): Long =
         if (this <= Long.MAX_VALUE - value) this + value else Long.MAX_VALUE

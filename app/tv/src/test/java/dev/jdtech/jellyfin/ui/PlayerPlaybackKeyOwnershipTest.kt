@@ -12,13 +12,13 @@ class PlayerPlaybackKeyOwnershipTest {
             playerRootOwnsPlaybackKeys(
                 overlayMode = VideoPlayerOverlayMode.Hidden,
                 skipPromptFocused = true,
-            )
+            ),
         )
         assertFalse(
             playerRootOwnsPlaybackKeys(
                 overlayMode = VideoPlayerOverlayMode.Peek,
                 skipPromptFocused = true,
-            )
+            ),
         )
     }
 
@@ -28,13 +28,13 @@ class PlayerPlaybackKeyOwnershipTest {
             playerRootOwnsPlaybackKeys(
                 overlayMode = VideoPlayerOverlayMode.Hidden,
                 skipPromptFocused = false,
-            )
+            ),
         )
         assertTrue(
             playerRootOwnsPlaybackKeys(
                 overlayMode = VideoPlayerOverlayMode.Peek,
                 skipPromptFocused = false,
-            )
+            ),
         )
     }
 
@@ -44,7 +44,7 @@ class PlayerPlaybackKeyOwnershipTest {
             playerRootOwnsPlaybackKeys(
                 overlayMode = VideoPlayerOverlayMode.Controls,
                 skipPromptFocused = false,
-            )
+            ),
         )
     }
 }

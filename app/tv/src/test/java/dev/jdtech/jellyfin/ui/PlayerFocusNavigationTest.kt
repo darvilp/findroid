@@ -32,7 +32,7 @@ class PlayerFocusNavigationTest {
                 source = PlayerFocusTarget.DefaultControls,
                 direction = PlayerFocusDirection.Down,
                 skipPromptAvailable = false,
-            )
+            ),
         )
     }
 
@@ -43,7 +43,7 @@ class PlayerFocusNavigationTest {
                 source = PlayerFocusTarget.SkipPrompt,
                 direction = PlayerFocusDirection.Down,
                 skipPromptAvailable = true,
-            )
+            ),
         )
     }
 }

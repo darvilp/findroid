@@ -30,20 +30,19 @@ internal class PlaybackCompletionCoordinator {
         if (terminalCompletionClaimed) return null
 
         terminalCompletionClaimed = true
-        terminalStopReport =
-            itemId?.let {
-                val completedPositionMs =
-                    when {
-                        durationMs > 0L -> durationMs
-                        positionMs >= 0L -> positionMs
-                        else -> return@let null
-                    }
-                PlaybackStopReport(
-                    itemId = it,
-                    positionTicks = completedPositionMs * TICKS_PER_MILLISECOND,
-                    playedPercentage = 100,
-                )
-            }
+        terminalStopReport = itemId?.let {
+            val completedPositionMs =
+                when {
+                    durationMs > 0L -> durationMs
+                    positionMs >= 0L -> positionMs
+                    else -> return@let null
+                }
+            PlaybackStopReport(
+                itemId = it,
+                positionTicks = completedPositionMs * TICKS_PER_MILLISECOND,
+                playedPercentage = 100,
+            )
+        }
 
         return TerminalPlaybackCompletion(stopReport = terminalStopReport)
     }
@@ -57,7 +56,9 @@ internal class PlaybackCompletionCoordinator {
         positionMs: Long,
         durationMs: Long,
     ): PlaybackStopReport? {
-        terminalStopReport?.let { return it.takeUnless { terminalStopReported } }
+        terminalStopReport?.let {
+            return it.takeUnless { terminalStopReported }
+        }
         if (terminalCompletionClaimed || itemId == null || positionMs < 0L || durationMs <= 0L) {
             return null
         }

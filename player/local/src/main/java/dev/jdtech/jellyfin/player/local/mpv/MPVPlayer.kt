@@ -36,15 +36,15 @@ import androidx.media3.common.util.Util
 import dev.jdtech.jellyfin.settings.domain.DEFAULT_MPV_AUDIO_OUTPUT
 import dev.jdtech.jellyfin.settings.domain.MpvSynchronizationKind
 import dev.jdtech.mpv.MPVLib
-import dev.jdtech.mpv.MPVLib.MpvFormat
 import dev.jdtech.mpv.MPVLib.MpvEvent
+import dev.jdtech.mpv.MPVLib.MpvFormat
 import java.io.File
+import java.io.IOException
 import java.util.concurrent.CopyOnWriteArraySet
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
 import timber.log.Timber
-import java.io.IOException
 
 class MPVPlayer(
     context: Context,
@@ -58,7 +58,11 @@ class MPVPlayer(
     videoOutput: String = "gpu-next",
     audioOutput: String = DEFAULT_MPV_AUDIO_OUTPUT,
     private val hwDec: String = "mediacodec",
-) : BasePlayer(), MPVLib.EventObserver, AudioManager.OnAudioFocusChangeListener, MpvSynchronization {
+) :
+    BasePlayer(),
+    MPVLib.EventObserver,
+    AudioManager.OnAudioFocusChangeListener,
+    MpvSynchronization {
     private val mpvLib: MPVLib
     private val audioManager: AudioManager by lazy { context.getSystemService()!! }
     private var audioFocusCallback: () -> Unit = {}
@@ -66,7 +70,7 @@ class MPVPlayer(
     private val handler: Handler = Handler(context.mainLooper)
 
     private constructor(
-        builder: Builder
+        builder: Builder,
     ) : this(
         context = builder.context,
         audioAttributes = builder.audioAttributes,
@@ -146,13 +150,16 @@ class MPVPlayer(
 
         setupDirectories(context, configDir, cacheDir)
 
-        mpvLib = MPVLib.create(context) ?: throw IllegalStateException("MPVLib.create() returned null")
+        mpvLib =
+            MPVLib.create(context) ?: throw IllegalStateException("MPVLib.create() returned null")
 
         // General
         mpvLib.setOptionString("config", "yes")
         mpvLib.setOptionString("config-dir", configDir.path)
-        for (opt in arrayOf("gpu-shader-cache-dir", "icc-cache-dir"))
-            mpvLib.setOptionString(opt, cacheDir.path)
+        for (opt in arrayOf("gpu-shader-cache-dir", "icc-cache-dir")) mpvLib.setOptionString(
+            opt,
+            cacheDir.path,
+        )
         mpvLib.setOptionString("profile", "fast")
         mpvLib.setOptionString("vo", videoOutput)
         mpvLib.setOptionString("ao", audioOutput)
@@ -251,7 +258,8 @@ class MPVPlayer(
         val cacheDir = File(context.cacheDir, "fontconfig")
         if (!cacheDir.exists()) cacheDir.mkdirs()
 
-        val config = """
+        val config =
+            """
             <fontconfig>
                 <dir>/system/fonts/</dir>
                 <dir>/product/fonts/</dir>
@@ -277,7 +285,8 @@ class MPVPlayer(
                 </alias>
 
             </fontconfig>
-        """.trimIndent()
+        """
+                .trimIndent()
 
         try {
             configFile.writeText(config)
@@ -490,7 +499,7 @@ class MPVPlayer(
 
     override fun getSynchronization(kind: MpvSynchronizationKind): Long? =
         mpvSynchronizationMilliseconds(
-            mpvLib.getPropertyString(mpvSynchronizationProperty(kind))
+            mpvLib.getPropertyString(mpvSynchronizationProperty(kind)),
         )
 
     override fun setSynchronization(kind: MpvSynchronizationKind, valueMs: Long) {
@@ -785,7 +794,7 @@ class MPVPlayer(
                     "${mediaItem.localConfiguration?.uri}",
                     "insert-at",
                     commandIndex.toString(),
-                )
+                ),
             )
         }
     }
@@ -931,7 +940,7 @@ class MPVPlayer(
                     "loadfile",
                     "${mediaItem.localConfiguration?.uri}",
                     if (index == 0) "replace" else "append",
-                )
+                ),
             )
         }
         prepareMediaItem(initialIndex)
@@ -1089,11 +1098,16 @@ class MPVPlayer(
         isRepeatingCurrentItem: Boolean,
     ) {
         if (mediaItemIndex == currentMediaItemIndex) {
-            val seekTo =
-                if (positionMs != C.TIME_UNSET) positionMs else initialSeekTo
+            val seekTo = if (positionMs != C.TIME_UNSET) positionMs else initialSeekTo
             initialSeekTo =
                 if (isPlayerReady) {
-                    mpvLib.command(arrayOf("seek", "${seekTo.toDouble().div(C.MILLIS_PER_SECOND)}", "absolute"))
+                    mpvLib.command(
+                        arrayOf(
+                            "seek",
+                            "${seekTo.toDouble().div(C.MILLIS_PER_SECOND)}",
+                            "absolute",
+                        ),
+                    )
                     0L
                 } else {
                     seekTo
@@ -1119,7 +1133,7 @@ class MPVPlayer(
                         /* flags= */ "auto",
                         /* title= */ "${subtitle.label}",
                         /* lang= */ "${subtitle.language}",
-                    )
+                    ),
                 )
             }
             // Avoid restarting the active entry and adding its external subtitles twice.
@@ -1467,7 +1481,8 @@ class MPVPlayer(
     }
 
     override fun getSurfaceSize(): Size {
-        val mpvSize = mpvLib.getPropertyString("android-surface-size")?.split("x") ?: return Size.UNKNOWN
+        val mpvSize =
+            mpvLib.getPropertyString("android-surface-size")?.split("x") ?: return Size.UNKNOWN
         return try {
             Size(mpvSize[0].toInt(), mpvSize[1].toInt())
         } catch (_: IndexOutOfBoundsException) {
@@ -1516,7 +1531,7 @@ class MPVPlayer(
     @Deprecated("Deprecated in Java")
     override fun setDeviceVolume(volume: Int) {
         throw IllegalArgumentException(
-            "You should use global volume controls. Check out AUDIO_SERVICE."
+            "You should use global volume controls. Check out AUDIO_SERVICE.",
         )
     }
 
@@ -1528,13 +1543,13 @@ class MPVPlayer(
     @Deprecated("Deprecated in Java")
     override fun increaseDeviceVolume() {
         throw IllegalArgumentException(
-            "You should use global volume controls. Check out AUDIO_SERVICE."
+            "You should use global volume controls. Check out AUDIO_SERVICE.",
         )
     }
 
     override fun increaseDeviceVolume(flags: Int) {
         throw IllegalArgumentException(
-            "You should use global volume controls. Check out AUDIO_SERVICE."
+            "You should use global volume controls. Check out AUDIO_SERVICE.",
         )
     }
 
@@ -1542,13 +1557,13 @@ class MPVPlayer(
     @Deprecated("Deprecated in Java")
     override fun decreaseDeviceVolume() {
         throw IllegalArgumentException(
-            "You should use global volume controls. Check out AUDIO_SERVICE."
+            "You should use global volume controls. Check out AUDIO_SERVICE.",
         )
     }
 
     override fun decreaseDeviceVolume(flags: Int) {
         throw IllegalArgumentException(
-            "You should use global volume controls. Check out AUDIO_SERVICE."
+            "You should use global volume controls. Check out AUDIO_SERVICE.",
         )
     }
 
@@ -1556,7 +1571,7 @@ class MPVPlayer(
     @Deprecated("Deprecated in Java")
     override fun setDeviceMuted(muted: Boolean) {
         throw IllegalArgumentException(
-            "You should use global volume controls. Check out AUDIO_SERVICE."
+            "You should use global volume controls. Check out AUDIO_SERVICE.",
         )
     }
 
@@ -1682,7 +1697,7 @@ class MPVPlayer(
                     .setLabel(json.optNullableString("title"))
                     .setLanguage(json.optNullableString("lang"))
                     .setSelectionFlags(
-                        if (json.optBoolean("default")) C.SELECTION_FLAG_DEFAULT else 0
+                        if (json.optBoolean("default")) C.SELECTION_FLAG_DEFAULT else 0,
                     )
                     .setCodecs(json.optNullableString("codec"))
                     .build()
@@ -1697,7 +1712,7 @@ class MPVPlayer(
                             .setWidth(json.optInt("demux-w", Format.NO_VALUE))
                             .setHeight(json.optInt("demux-h", Format.NO_VALUE))
                             .setFrameRate(
-                                (json.optNullableDouble("demux-w") ?: Format.NO_VALUE).toFloat()
+                                (json.optNullableDouble("demux-w") ?: Format.NO_VALUE).toFloat(),
                             )
                             .build()
                     }

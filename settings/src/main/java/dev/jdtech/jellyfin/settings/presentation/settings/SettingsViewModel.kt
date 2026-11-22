@@ -29,11 +29,12 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
 @HiltViewModel
-class SettingsViewModel @Inject constructor(
+class SettingsViewModel
+@Inject
+constructor(
     private val appPreferences: AppPreferences,
     private val mpvSynchronizationConfigStore: MpvSynchronizationConfigStore,
-) :
-    ViewModel() {
+) : ViewModel() {
     private val _state = MutableStateFlow(SettingsState())
     val state = _state.asStateFlow()
 
@@ -63,8 +64,8 @@ class SettingsViewModel @Inject constructor(
                                 }
                             },
                             backendPreference = appPreferences.offlineMode,
-                        )
-                    )
+                        ),
+                    ),
             ),
             PreferenceGroup(
                 preferences =
@@ -76,8 +77,8 @@ class SettingsViewModel @Inject constructor(
                                 viewModelScope.launch {
                                     eventsChannel.send(
                                         SettingsEvent.NavigateToSettings(
-                                            intArrayOf(it.nameStringResource)
-                                        )
+                                            intArrayOf(it.nameStringResource),
+                                        ),
                                     )
                                 }
                             },
@@ -92,8 +93,8 @@ class SettingsViewModel @Inject constructor(
                                                     enabled =
                                                         Build.VERSION.SDK_INT >=
                                                             Build.VERSION_CODES.TIRAMISU,
-                                                )
-                                            )
+                                                ),
+                                            ),
                                     ),
                                     PreferenceGroup(
                                         preferences =
@@ -119,11 +120,11 @@ class SettingsViewModel @Inject constructor(
                                                     optionValues = R.array.languages_values,
                                                     optionsIncludeNull = true,
                                                 ),
-                                            )
+                                            ),
                                     ),
                                 ),
-                        )
-                    )
+                        ),
+                    ),
             ),
             PreferenceGroup(
                 preferences =
@@ -135,8 +136,8 @@ class SettingsViewModel @Inject constructor(
                                 viewModelScope.launch {
                                     eventsChannel.send(
                                         SettingsEvent.NavigateToSettings(
-                                            intArrayOf(it.nameStringResource)
-                                        )
+                                            intArrayOf(it.nameStringResource),
+                                        ),
                                     )
                                 }
                             },
@@ -154,8 +155,8 @@ class SettingsViewModel @Inject constructor(
                                                         viewModelScope.launch {
                                                             eventsChannel.send(
                                                                 SettingsEvent.UpdateTheme(
-                                                                    value ?: "system"
-                                                                )
+                                                                    value ?: "system",
+                                                                ),
                                                             )
                                                         }
                                                     },
@@ -170,7 +171,8 @@ class SettingsViewModel @Inject constructor(
                                                         Build.VERSION.SDK_INT >=
                                                             Build.VERSION_CODES.S,
                                                     supportedDeviceTypes = listOf(DeviceType.PHONE),
-                                                    backendPreference = appPreferences.dynamicColors,
+                                                    backendPreference =
+                                                        appPreferences.dynamicColors,
                                                 ),
                                             ),
                                     ),
@@ -208,12 +210,12 @@ class SettingsViewModel @Inject constructor(
                                                         R.string.extra_info_summary,
                                                     backendPreference =
                                                         appPreferences.displayExtraInfo,
-                                                )
-                                            )
+                                                ),
+                                            ),
                                     ),
                                 ),
-                        )
-                    )
+                        ),
+                    ),
             ),
             PreferenceGroup(
                 preferences =
@@ -225,8 +227,8 @@ class SettingsViewModel @Inject constructor(
                                 viewModelScope.launch {
                                     eventsChannel.send(
                                         SettingsEvent.NavigateToSettings(
-                                            intArrayOf(it.nameStringResource)
-                                        )
+                                            intArrayOf(it.nameStringResource),
+                                        ),
                                     )
                                 }
                             },
@@ -246,23 +248,25 @@ class SettingsViewModel @Inject constructor(
                                                                 SettingsEvent.LaunchIntent(
                                                                     Intent(
                                                                         Settings
-                                                                            .ACTION_CAPTIONING_SETTINGS
-                                                                    )
-                                                                )
+                                                                            .ACTION_CAPTIONING_SETTINGS,
+                                                                    ),
+                                                                ),
                                                             )
                                                         }
                                                     },
-                                                )
-                                            )
+                                                ),
+                                            ),
                                     ),
                                     PreferenceGroup(
                                         preferences =
                                             listOf(
                                                 PreferenceSelect(
-                                                    nameStringResource = R.string.pref_player_backend,
-                                                    backendPreference = appPreferences.playerBackend,
+                                                    nameStringResource =
+                                                        R.string.pref_player_backend,
+                                                    backendPreference =
+                                                        appPreferences.playerBackend,
                                                     options = R.array.player_backends,
-                                                    optionValues = R.array.player_backends
+                                                    optionValues = R.array.player_backends,
                                                 ),
                                                 PreferenceCategory(
                                                     nameStringResource = R.string.mpv_options,
@@ -270,8 +274,12 @@ class SettingsViewModel @Inject constructor(
                                                         viewModelScope.launch {
                                                             eventsChannel.send(
                                                                 SettingsEvent.NavigateToSettings(
-                                                                    intArrayOf(R.string.settings_category_player, it.nameStringResource)
-                                                                )
+                                                                    intArrayOf(
+                                                                        R.string
+                                                                            .settings_category_player,
+                                                                        it.nameStringResource,
+                                                                    ),
+                                                                ),
                                                             )
                                                         }
                                                     },
@@ -282,25 +290,39 @@ class SettingsViewModel @Inject constructor(
                                                                     listOf(
                                                                         PreferenceSelect(
                                                                             nameStringResource =
-                                                                                R.string.pref_player_mpv_hwdec,
+                                                                                R.string
+                                                                                    .pref_player_mpv_hwdec,
                                                                             backendPreference =
-                                                                                appPreferences.playerMpvHwdec,
-                                                                            options = R.array.mpv_hwdec,
-                                                                            optionValues = R.array.mpv_hwdec,
+                                                                                appPreferences
+                                                                                    .playerMpvHwdec,
+                                                                            options =
+                                                                                R.array.mpv_hwdec,
+                                                                            optionValues =
+                                                                                R.array.mpv_hwdec,
                                                                         ),
                                                                         PreferenceSelect(
                                                                             nameStringResource =
-                                                                                R.string.pref_player_mpv_vo,
-                                                                            backendPreference = appPreferences.playerMpvVo,
-                                                                            options = R.array.mpv_vos,
-                                                                            optionValues = R.array.mpv_vos,
+                                                                                R.string
+                                                                                    .pref_player_mpv_vo,
+                                                                            backendPreference =
+                                                                                appPreferences
+                                                                                    .playerMpvVo,
+                                                                            options =
+                                                                                R.array.mpv_vos,
+                                                                            optionValues =
+                                                                                R.array.mpv_vos,
                                                                         ),
                                                                         PreferenceSelect(
                                                                             nameStringResource =
-                                                                                R.string.pref_player_mpv_ao,
-                                                                            backendPreference = appPreferences.playerMpvAo,
-                                                                            options = R.array.mpv_aos,
-                                                                            optionValues = R.array.mpv_aos,
+                                                                                R.string
+                                                                                    .pref_player_mpv_ao,
+                                                                            backendPreference =
+                                                                                appPreferences
+                                                                                    .playerMpvAo,
+                                                                            options =
+                                                                                R.array.mpv_aos,
+                                                                            optionValues =
+                                                                                R.array.mpv_aos,
                                                                         ),
                                                                     ),
                                                             ),
@@ -308,48 +330,75 @@ class SettingsViewModel @Inject constructor(
                                                                 preferences =
                                                                     listOf(
                                                                         PreferenceMpvSynchronization(
-                                                                            nameStringResource = R.string.default_audio_synchronization,
-                                                                            kind = MpvSynchronizationKind.AUDIO,
+                                                                            nameStringResource =
+                                                                                R.string
+                                                                                    .default_audio_synchronization,
+                                                                            kind =
+                                                                                MpvSynchronizationKind
+                                                                                    .AUDIO,
                                                                             valueMs = 0,
                                                                         ),
                                                                         PreferenceMpvSynchronization(
-                                                                            nameStringResource = R.string.default_subtitle_synchronization,
-                                                                            kind = MpvSynchronizationKind.SUBTITLE,
+                                                                            nameStringResource =
+                                                                                R.string
+                                                                                    .default_subtitle_synchronization,
+                                                                            kind =
+                                                                                MpvSynchronizationKind
+                                                                                    .SUBTITLE,
                                                                             valueMs = 0,
                                                                         ),
-                                                                    )
+                                                                    ),
                                                             ),
                                                             PreferenceGroup(
-                                                                nameStringResource = R.string.advanced,
+                                                                nameStringResource =
+                                                                    R.string.advanced,
                                                                 preferences =
                                                                     listOf(
                                                                         PreferenceFileEdit(
-                                                                            nameStringResource = R.string.edit_file_title,
-                                                                            filePath = "mpv/mpv.conf",
+                                                                            nameStringResource =
+                                                                                R.string
+                                                                                    .edit_file_title,
+                                                                            filePath =
+                                                                                "mpv/mpv.conf",
                                                                             onClick = {
-                                                                                viewModelScope.launch {
-                                                                                    eventsChannel.send(
-                                                                                        SettingsEvent.NavigateToSettingsFileEdit(it.filePath)
-                                                                                    )
-                                                                                }
-                                                                            }
+                                                                                viewModelScope
+                                                                                    .launch {
+                                                                                        eventsChannel
+                                                                                            .send(
+                                                                                                SettingsEvent
+                                                                                                    .NavigateToSettingsFileEdit(
+                                                                                                        it
+                                                                                                            .filePath,
+                                                                                                    ),
+                                                                                            )
+                                                                                    }
+                                                                            },
                                                                         ),
                                                                         PreferenceFileEdit(
-                                                                            nameStringResource = R.string.edit_file_title,
-                                                                            filePath = "mpv/input.conf",
+                                                                            nameStringResource =
+                                                                                R.string
+                                                                                    .edit_file_title,
+                                                                            filePath =
+                                                                                "mpv/input.conf",
                                                                             onClick = {
-                                                                                viewModelScope.launch {
-                                                                                    eventsChannel.send(
-                                                                                        SettingsEvent.NavigateToSettingsFileEdit(it.filePath)
-                                                                                    )
-                                                                                }
-                                                                            }
-                                                                        )
-                                                                    )
+                                                                                viewModelScope
+                                                                                    .launch {
+                                                                                        eventsChannel
+                                                                                            .send(
+                                                                                                SettingsEvent
+                                                                                                    .NavigateToSettingsFileEdit(
+                                                                                                        it
+                                                                                                            .filePath,
+                                                                                                    ),
+                                                                                            )
+                                                                                    }
+                                                                            },
+                                                                        ),
+                                                                    ),
                                                             ),
-                                                        )
+                                                        ),
                                                 ),
-                                            )
+                                            ),
                                     ),
                                     PreferenceGroup(
                                         nameStringResource = R.string.gestures,
@@ -473,7 +522,8 @@ class SettingsViewModel @Inject constructor(
                                                         R.string
                                                             .pref_player_media_segments_skip_button_summary,
                                                     backendPreference =
-                                                        appPreferences.playerMediaSegmentsSkipButton,
+                                                        appPreferences
+                                                            .playerMediaSegmentsSkipButton,
                                                 ),
                                                 PreferenceMultiSelect(
                                                     nameStringResource =
@@ -482,7 +532,7 @@ class SettingsViewModel @Inject constructor(
                                                     dependencies =
                                                         listOf(
                                                             appPreferences
-                                                                .playerMediaSegmentsSkipButton
+                                                                .playerMediaSegmentsSkipButton,
                                                         ),
                                                     backendPreference =
                                                         appPreferences
@@ -495,12 +545,11 @@ class SettingsViewModel @Inject constructor(
                                                     nameStringResource =
                                                         R.string
                                                             .pref_player_media_segments_skip_button_duration,
-                                                    supportedDeviceTypes =
-                                                        listOf(DeviceType.PHONE),
+                                                    supportedDeviceTypes = listOf(DeviceType.PHONE),
                                                     dependencies =
                                                         listOf(
                                                             appPreferences
-                                                                .playerMediaSegmentsSkipButton
+                                                                .playerMediaSegmentsSkipButton,
                                                         ),
                                                     backendPreference =
                                                         appPreferences
@@ -524,7 +573,7 @@ class SettingsViewModel @Inject constructor(
                                                     dependencies =
                                                         listOf(
                                                             appPreferences
-                                                                .playerMediaSegmentsAutoSkip
+                                                                .playerMediaSegmentsAutoSkip,
                                                         ),
                                                     supportedDeviceTypes = listOf(DeviceType.PHONE),
                                                     backendPreference =
@@ -541,7 +590,7 @@ class SettingsViewModel @Inject constructor(
                                                     dependencies =
                                                         listOf(
                                                             appPreferences
-                                                                .playerMediaSegmentsAutoSkip
+                                                                .playerMediaSegmentsAutoSkip,
                                                         ),
                                                     backendPreference =
                                                         appPreferences
@@ -600,12 +649,12 @@ class SettingsViewModel @Inject constructor(
                                                     supportedDeviceTypes = listOf(DeviceType.PHONE),
                                                     backendPreference =
                                                         appPreferences.playerPipGesture,
-                                                )
+                                                ),
                                             ),
                                     ),
                                 ),
-                        )
-                    )
+                        ),
+                    ),
             ),
             PreferenceGroup(
                 preferences =
@@ -618,8 +667,8 @@ class SettingsViewModel @Inject constructor(
                                     eventsChannel.send(SettingsEvent.NavigateToUsers)
                                 }
                             },
-                        )
-                    )
+                        ),
+                    ),
             ),
             PreferenceGroup(
                 preferences =
@@ -632,8 +681,8 @@ class SettingsViewModel @Inject constructor(
                                     eventsChannel.send(SettingsEvent.NavigateToServers)
                                 }
                             },
-                        )
-                    )
+                        ),
+                    ),
             ),
             PreferenceGroup(
                 preferences =
@@ -646,8 +695,8 @@ class SettingsViewModel @Inject constructor(
                                 viewModelScope.launch {
                                     eventsChannel.send(
                                         SettingsEvent.NavigateToSettings(
-                                            intArrayOf(it.nameStringResource)
-                                        )
+                                            intArrayOf(it.nameStringResource),
+                                        ),
                                     )
                                 }
                             },
@@ -667,17 +716,17 @@ class SettingsViewModel @Inject constructor(
                                                     nameStringResource = R.string.download_roaming,
                                                     dependencies =
                                                         listOf(
-                                                            appPreferences.downloadOverMobileData
+                                                            appPreferences.downloadOverMobileData,
                                                         ),
                                                     supportedDeviceTypes = listOf(DeviceType.PHONE),
                                                     backendPreference =
                                                         appPreferences.downloadWhenRoaming,
                                                 ),
-                                            )
-                                    )
+                                            ),
+                                    ),
                                 ),
-                        )
-                    )
+                        ),
+                    ),
             ),
             PreferenceGroup(
                 preferences =
@@ -689,8 +738,8 @@ class SettingsViewModel @Inject constructor(
                                 viewModelScope.launch {
                                     eventsChannel.send(
                                         SettingsEvent.NavigateToSettings(
-                                            intArrayOf(it.nameStringResource)
-                                        )
+                                            intArrayOf(it.nameStringResource),
+                                        ),
                                     )
                                 }
                             },
@@ -720,11 +769,11 @@ class SettingsViewModel @Inject constructor(
                                                         appPreferences.socketTimeout,
                                                     suffixRes = R.string.ms,
                                                 ),
-                                            )
-                                    )
+                                            ),
+                                    ),
                                 ),
-                        )
-                    )
+                        ),
+                    ),
             ),
             PreferenceGroup(
                 preferences =
@@ -736,8 +785,8 @@ class SettingsViewModel @Inject constructor(
                                 viewModelScope.launch {
                                     eventsChannel.send(
                                         SettingsEvent.NavigateToSettings(
-                                            intArrayOf(it.nameStringResource)
-                                        )
+                                            intArrayOf(it.nameStringResource),
+                                        ),
                                     )
                                 }
                             },
@@ -764,11 +813,11 @@ class SettingsViewModel @Inject constructor(
                                                         appPreferences.imageCacheSize,
                                                     suffixRes = R.string.mb,
                                                 ),
-                                            )
-                                    )
+                                            ),
+                                    ),
                                 ),
-                        )
-                    )
+                        ),
+                    ),
             ),
             PreferenceGroup(
                 preferences =
@@ -781,8 +830,8 @@ class SettingsViewModel @Inject constructor(
                                     eventsChannel.send(SettingsEvent.NavigateToAbout)
                                 }
                             },
-                        )
-                    )
+                        ),
+                    ),
             ),
         )
 
@@ -847,7 +896,7 @@ class SettingsViewModel @Inject constructor(
                                                             },
                                                     value =
                                                         appPreferences.getValue(
-                                                            preference.backendPreference
+                                                            preference.backendPreference,
                                                         ),
                                                 )
                                             }
@@ -860,7 +909,7 @@ class SettingsViewModel @Inject constructor(
                                                             },
                                                     value =
                                                         appPreferences.getValue(
-                                                            preference.backendPreference
+                                                            preference.backendPreference,
                                                         ),
                                                 )
                                             }
@@ -873,7 +922,7 @@ class SettingsViewModel @Inject constructor(
                                                             },
                                                     value =
                                                         appPreferences.getValue(
-                                                            preference.backendPreference
+                                                            preference.backendPreference,
                                                         ),
                                                 )
                                             }
@@ -886,7 +935,7 @@ class SettingsViewModel @Inject constructor(
                                                             },
                                                     value =
                                                         appPreferences.getValue(
-                                                            preference.backendPreference
+                                                            preference.backendPreference,
                                                         ),
                                                 )
                                             }
@@ -894,7 +943,7 @@ class SettingsViewModel @Inject constructor(
                                                 preference.copy(
                                                     valueMs =
                                                         checkNotNull(synchronizationDefaults)
-                                                            .value(preference.kind)
+                                                            .value(preference.kind),
                                                 )
                                             }
                                             is PreferenceLongInput -> {
@@ -906,13 +955,13 @@ class SettingsViewModel @Inject constructor(
                                                             },
                                                     value =
                                                         appPreferences.getValue(
-                                                            preference.backendPreference
+                                                            preference.backendPreference,
                                                         ),
                                                 )
                                             }
                                             else -> preference
                                         }
-                                    }
+                                    },
                         )
                     }
                     .filter { it.preferences.isNotEmpty() }
@@ -967,20 +1016,23 @@ class SettingsViewModel @Inject constructor(
                                                 group.copy(
                                                     preferences =
                                                         group.preferences.map { preference ->
-                                                            if (preference is PreferenceMpvSynchronization) {
+                                                            if (
+                                                                preference
+                                                                    is PreferenceMpvSynchronization
+                                                            ) {
                                                                 preference.copy(
                                                                     valueMs =
                                                                         outcome.defaults.value(
-                                                                            preference.kind
-                                                                        )
+                                                                            preference.kind,
+                                                                        ),
                                                                 )
                                                             } else {
                                                                 preference
                                                             }
-                                                        }
+                                                        },
                                                 )
-                                            }
-                                    )
+                                            },
+                                    ),
                                 )
                             is MpvSynchronizationConfigOutcome.Failure ->
                                 eventsChannel.send(SettingsEvent.MpvSynchronizationConfigError)

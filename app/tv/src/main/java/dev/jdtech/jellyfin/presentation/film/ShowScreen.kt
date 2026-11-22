@@ -65,9 +65,9 @@ import dev.jdtech.jellyfin.film.presentation.show.ShowAction
 import dev.jdtech.jellyfin.film.presentation.show.ShowState
 import dev.jdtech.jellyfin.film.presentation.show.ShowViewModel
 import dev.jdtech.jellyfin.models.FindroidItem
+import dev.jdtech.jellyfin.presentation.film.components.PreplayTrackControls
 import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
 import dev.jdtech.jellyfin.presentation.theme.spacings
-import dev.jdtech.jellyfin.presentation.film.components.PreplayTrackControls
 import dev.jdtech.jellyfin.ui.components.Direction
 import dev.jdtech.jellyfin.ui.components.ItemCard
 import dev.jdtech.jellyfin.utils.getShowDateString
@@ -148,7 +148,7 @@ private fun ShowScreenLayout(
                 modifier =
                     Modifier.fillMaxSize().onGloballyPositioned { coordinates ->
                         size = coordinates.size.toSize()
-                    }
+                    },
             ) {
                 AsyncImage(
                     model = show.images.backdrop,
@@ -165,8 +165,8 @@ private fun ShowScreenLayout(
                                         listOf(Color.Black.copy(alpha = .2f), Color.Black),
                                         center = Offset(size.width, 0f),
                                         radius = size.width * .8f,
-                                    )
-                                )
+                                    ),
+                                ),
                     )
                 }
                 LazyColumn(
@@ -197,7 +197,7 @@ private fun ShowScreenLayout(
                                 Modifier.padding(
                                     start = MaterialTheme.spacings.default * 2,
                                     end = MaterialTheme.spacings.default * 2,
-                                )
+                                ),
                         ) {
                             Text(text = show.name, style = MaterialTheme.typography.displayMedium)
                             if (show.originalTitle != show.name) {
@@ -211,7 +211,7 @@ private fun ShowScreenLayout(
                             Spacer(modifier = Modifier.height(MaterialTheme.spacings.small))
                             Row(
                                 horizontalArrangement =
-                                    Arrangement.spacedBy(MaterialTheme.spacings.small)
+                                    Arrangement.spacedBy(MaterialTheme.spacings.small),
                             ) {
                                 Text(
                                     text = getShowDateString(show),
@@ -238,7 +238,7 @@ private fun ShowScreenLayout(
                                         )
                                         Spacer(
                                             modifier =
-                                                Modifier.width(MaterialTheme.spacings.extraSmall)
+                                                Modifier.width(MaterialTheme.spacings.extraSmall),
                                         )
                                         Text(
                                             text = String.format(locale, "%.1f", it),
@@ -258,7 +258,7 @@ private fun ShowScreenLayout(
                             Spacer(modifier = Modifier.height(MaterialTheme.spacings.default))
                             Row(
                                 horizontalArrangement =
-                                    Arrangement.spacedBy(MaterialTheme.spacings.medium)
+                                    Arrangement.spacedBy(MaterialTheme.spacings.medium),
                             ) {
                                 Button(
                                     onClick = { onAction(ShowAction.Play()) },
@@ -282,7 +282,7 @@ private fun ShowScreenLayout(
                                         Icon(
                                             painter =
                                                 painterResource(
-                                                    id = CoreR.drawable.ic_rotate_ccw
+                                                    id = CoreR.drawable.ic_rotate_ccw,
                                                 ),
                                             contentDescription = null,
                                         )
@@ -290,14 +290,14 @@ private fun ShowScreenLayout(
                                         Text(
                                             text =
                                                 stringResource(
-                                                    id = CoreR.string.play_from_beginning
-                                                )
+                                                    id = CoreR.string.play_from_beginning,
+                                                ),
                                         )
                                     }
                                 }
                                 show.trailer?.let { trailerUri ->
                                     Button(
-                                        onClick = { onAction(ShowAction.PlayTrailer(trailerUri)) }
+                                        onClick = { onAction(ShowAction.PlayTrailer(trailerUri)) },
                                     ) {
                                         Icon(
                                             painter = painterResource(id = CoreR.drawable.ic_film),
@@ -313,7 +313,7 @@ private fun ShowScreenLayout(
                                             true -> onAction(ShowAction.UnmarkAsPlayed)
                                             false -> onAction(ShowAction.MarkAsPlayed)
                                         }
-                                    }
+                                    },
                                 ) {
                                     Icon(
                                         painter = painterResource(id = CoreR.drawable.ic_check),
@@ -328,8 +328,8 @@ private fun ShowScreenLayout(
                                             stringResource(
                                                 id =
                                                     if (show.played) CoreR.string.unmark_as_played
-                                                    else CoreR.string.mark_as_played
-                                            )
+                                                    else CoreR.string.mark_as_played,
+                                            ),
                                     )
                                 }
                                 Button(
@@ -338,7 +338,7 @@ private fun ShowScreenLayout(
                                             true -> onAction(ShowAction.UnmarkAsFavorite)
                                             false -> onAction(ShowAction.MarkAsFavorite)
                                         }
-                                    }
+                                    },
                                 ) {
                                     Icon(
                                         painter =
@@ -346,7 +346,7 @@ private fun ShowScreenLayout(
                                                 id =
                                                     if (show.favorite)
                                                         CoreR.drawable.ic_heart_filled
-                                                    else CoreR.drawable.ic_heart
+                                                    else CoreR.drawable.ic_heart,
                                             ),
                                         contentDescription = null,
                                         tint =
@@ -360,15 +360,16 @@ private fun ShowScreenLayout(
                                                 id =
                                                     if (show.favorite)
                                                         CoreR.string.remove_from_favorites
-                                                    else CoreR.string.add_to_favorites
-                                            )
+                                                    else CoreR.string.add_to_favorites,
+                                            ),
                                     )
                                 }
                             }
                             Spacer(modifier = Modifier.height(MaterialTheme.spacings.default))
                             PreplayTrackControls(
                                 state = trackSelectionState,
-                                referenceLabel = state.playbackStart?.episode?.trackReferenceLabel(),
+                                referenceLabel =
+                                    state.playbackStart?.episode?.trackReferenceLabel(),
                                 onSelectAudio = onSelectAudio,
                                 onSelectSubtitle = onSelectSubtitle,
                                 onRetry = onRetryTracks,
@@ -376,7 +377,7 @@ private fun ShowScreenLayout(
                             Spacer(modifier = Modifier.height(MaterialTheme.spacings.default))
                             Row(
                                 horizontalArrangement =
-                                    Arrangement.spacedBy(MaterialTheme.spacings.large)
+                                    Arrangement.spacedBy(MaterialTheme.spacings.large),
                             ) {
                                 Column {
                                     Text(

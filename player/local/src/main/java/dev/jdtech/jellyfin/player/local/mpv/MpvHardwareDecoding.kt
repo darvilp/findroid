@@ -1,7 +1,8 @@
 package dev.jdtech.jellyfin.player.local.mpv
 
-internal fun isHardwareDecodingActive(currentHwdec: String?): Boolean? =
-    currentHwdec?.let { it != SOFTWARE_DECODING }
+internal fun isHardwareDecodingActive(currentHwdec: String?): Boolean? = currentHwdec?.let {
+    it != SOFTWARE_DECODING
+}
 
 internal fun requestedHwdec(enabled: Boolean, configuredHwdec: String): String =
     when {

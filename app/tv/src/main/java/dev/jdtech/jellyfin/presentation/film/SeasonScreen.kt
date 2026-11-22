@@ -42,10 +42,10 @@ import dev.jdtech.jellyfin.film.presentation.season.SeasonState
 import dev.jdtech.jellyfin.film.presentation.season.SeasonViewModel
 import dev.jdtech.jellyfin.models.FindroidEpisode
 import dev.jdtech.jellyfin.models.InitialTrackSelection
-import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
-import dev.jdtech.jellyfin.presentation.theme.spacings
 import dev.jdtech.jellyfin.presentation.film.components.EpisodeActionsDialog
 import dev.jdtech.jellyfin.presentation.film.components.PreplayTrackControls
+import dev.jdtech.jellyfin.presentation.theme.FindroidTheme
+import dev.jdtech.jellyfin.presentation.theme.spacings
 import dev.jdtech.jellyfin.ui.components.EpisodeCard
 import java.util.UUID
 
@@ -122,7 +122,7 @@ private fun SeasonScreenLayout(
                                 start = MaterialTheme.spacings.extraLarge,
                                 top = MaterialTheme.spacings.large,
                                 end = MaterialTheme.spacings.large,
-                            )
+                            ),
                 ) {
                     Text(text = season.name, style = MaterialTheme.typography.displayMedium)
                     Text(text = season.seriesName, style = MaterialTheme.typography.headlineMedium)
@@ -141,9 +141,7 @@ private fun SeasonScreenLayout(
                     if (hasMeaningfulPlaybackStart(state)) {
                         Spacer(modifier = Modifier.height(MaterialTheme.spacings.small))
                         Button(
-                            onClick = {
-                                onAction(SeasonAction.Play(startFromBeginning = true))
-                            },
+                            onClick = { onAction(SeasonAction.Play(startFromBeginning = true)) },
                             enabled = state.playbackStart != null,
                         ) {
                             Icon(

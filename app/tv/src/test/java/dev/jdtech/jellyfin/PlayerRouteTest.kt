@@ -2,8 +2,8 @@ package dev.jdtech.jellyfin
 
 import dev.jdtech.jellyfin.models.InitialTrackSelection
 import java.util.UUID
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

@@ -47,12 +47,12 @@ internal class ChapterNavigationController {
         val positionMs =
             seekPositionTracker.positionForNavigation(
                 reportedPositionMs = reportedPositionMs,
-                validChapterPositions = normalizedChapters.mapTo(mutableSetOf()) { chapter ->
-                    chapter.startPosition
-                },
+                validChapterPositions =
+                    normalizedChapters.mapTo(mutableSetOf()) { chapter -> chapter.startPosition },
             )
-        val currentChapterIndex =
-            normalizedChapters.indexOfLast { chapter -> chapter.startPosition <= positionMs }
+        val currentChapterIndex = normalizedChapters.indexOfLast { chapter ->
+            chapter.startPosition <= positionMs
+        }
         val previousChapter =
             if (currentChapterIndex < 0) {
                 null
@@ -64,8 +64,9 @@ internal class ChapterNavigationController {
                     normalizedChapters.getOrNull(currentChapterIndex - 1)
                 }
             }
-        val nextChapter =
-            normalizedChapters.firstOrNull { chapter -> chapter.startPosition > positionMs }
+        val nextChapter = normalizedChapters.firstOrNull { chapter ->
+            chapter.startPosition > positionMs
+        }
 
         return ChapterNavigationState(
             chapters = normalizedChapters,
