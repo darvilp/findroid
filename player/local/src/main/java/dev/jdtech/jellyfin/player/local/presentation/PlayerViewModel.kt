@@ -42,6 +42,7 @@ import dev.jdtech.jellyfin.player.local.domain.MediaSegmentPlaybackDecision
 import dev.jdtech.jellyfin.player.local.domain.MediaSegmentPlaybackPreferences
 import dev.jdtech.jellyfin.player.local.domain.PlaybackCompletionCoordinator
 import dev.jdtech.jellyfin.player.local.domain.PlaybackDetailsTarget
+import dev.jdtech.jellyfin.player.local.domain.PlaybackReportQueue
 import dev.jdtech.jellyfin.player.local.domain.PlaybackRestartController
 import dev.jdtech.jellyfin.player.local.domain.PlaybackRestartTarget
 import dev.jdtech.jellyfin.player.local.domain.PlaybackStopReport
@@ -65,12 +66,10 @@ import dev.jdtech.jellyfin.settings.domain.MpvSynchronizationKind
 import java.util.UUID
 import javax.inject.Inject
 import kotlin.math.ceil
-import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -141,9 +140,13 @@ constructor(
     private val trackSelector = DefaultTrackSelector(application)
     var playWhenReady = true
     private var currentMediaItemIndex = savedStateHandle["mediaItemIndex"] ?: 0
-    private var playbackPosition: Long = savedStateHandle["position"] ?: 0
     private val mediaSegmentPlayback = MediaSegmentPlayback()
     private val playbackCompletionCoordinator = PlaybackCompletionCoordinator()
+    private val playbackReports =
+        PlaybackReportQueue(CoroutineScope(Dispatchers.Main.immediate)) {
+            Timber.e(it, "Playback report failed")
+        }
+    private var reportingItemId: UUID? = null
     private val playbackRestartController = PlaybackRestartController()
     private val chapterNavigationController = ChapterNavigationController()
     private val playlistNavigationController = PlaylistNavigationController()
@@ -327,12 +330,12 @@ constructor(
                 Timber.e(e)
             }
 
-            val startPosition =
-                if (playbackPosition == 0L) {
-                    items.getOrNull(currentMediaItemIndex)?.playbackPosition ?: C.TIME_UNSET
-                } else {
-                    playbackPosition
+            val savedPosition =
+                savedStateHandle.get<Long>("position")?.takeIf {
+                    savedStateHandle.get<String>("positionItemId") == startItem.itemId.toString()
                 }
+            val startPosition =
+                if (startFromBeginning) 0L else savedPosition ?: startItem.playbackPosition
 
             beginPlaybackPass(itemId = startItem.itemId)
             player.setMediaItems(mediaItems, 0, startPosition)
@@ -366,29 +369,12 @@ constructor(
         return mediaItem
     }
 
-    @OptIn(DelicateCoroutinesApi::class)
     private fun releasePlayer() {
-        val stopReport =
-            playbackCompletionCoordinator.releaseStopReport(
-                itemId = player.currentMediaItem?.mediaId?.toUuidOrNull(),
-                positionMs = player.currentPosition,
-                durationMs = player.duration,
-            )
-        GlobalScope.launch {
-            delay(200L)
-            try {
-                if (stopReport != null) {
-                    Timber.d("Sending playback stop")
-                    postPlaybackStop(stopReport)
-                }
-            } catch (e: Exception) {
-                Timber.e(e)
-            }
-        }
+        stopReportingCurrentItem()
+        playbackReports.close()
 
         _uiState.update { it.copy(currentTrickplay = null) }
         playWhenReady = false
-        playbackPosition = 0L
         currentMediaItemIndex = 0
         player.removeListener(this)
         if (::mpvSynchronization.isInitialized) {
@@ -398,23 +384,29 @@ constructor(
     }
 
     fun updatePlaybackProgress() {
-        Timber.d("Updating playback progress")
-        viewModelScope.launch(Dispatchers.Main) {
-            savedStateHandle["position"] = player.currentPosition
-            if (player.currentMediaItem != null && player.currentMediaItem!!.mediaId.isNotEmpty()) {
-                val itemId = UUID.fromString(player.currentMediaItem!!.mediaId)
-                try {
-                    repository.postPlaybackProgress(
-                        itemId,
-                        player.currentPosition.times(10000),
-                        !player.isPlaying,
-                        currentPlaybackTrackReport(itemId),
-                    )
-                } catch (e: Exception) {
-                    Timber.e(e)
-                }
-            }
+        val itemId = reportingItemId ?: return
+        if (player.currentMediaItem?.mediaId != itemId.toString()) return
+        val position = player.currentPosition.takeIf { it >= 0 } ?: return
+        val isPaused = !player.isPlaying
+        val tracks = currentPlaybackTrackReport(itemId)
+        savedStateHandle["positionItemId"] = itemId.toString()
+        savedStateHandle["position"] = position
+        playbackReports.enqueue {
+            repository.postPlaybackProgress(itemId, position * 10_000L, isPaused, tracks)
         }
+    }
+
+    private fun stopReportingCurrentItem() {
+        val itemId = reportingItemId ?: return
+        reportingItemId = null
+        if (player.currentMediaItem?.mediaId != itemId.toString()) return
+        val report =
+            playbackCompletionCoordinator.releaseStopReport(
+                itemId = itemId,
+                positionMs = player.currentPosition,
+                durationMs = player.duration,
+            ) ?: return
+        enqueuePlaybackStop(report)
     }
 
     fun updateCurrentSegment() {
@@ -470,6 +462,9 @@ constructor(
             updateSynchronizationUiState()
         }
         val itemId = transitionedItemId ?: return
+        reportingItemId = itemId
+        val tracks = playlistManager.getPlaybackTrackReport(itemId)
+        playbackReports.enqueue { repository.postPlaybackStart(itemId, tracks) }
         initialTrackApplicationState.reset(itemId)
         beginPlaybackPass(itemId = itemId)
         viewModelScope.launch {
@@ -496,11 +491,6 @@ constructor(
                                 fileLoaded = false,
                             )
                         }
-
-                        repository.postPlaybackStart(
-                            item.itemId,
-                            playlistManager.getPlaybackTrackReport(item.itemId),
-                        )
 
                         if (segmentsSkipButton || segmentsAutoSkip) {
                             getSegments(item.itemId)
@@ -554,7 +544,9 @@ constructor(
     }
 
     private fun navigatePlaylist(direction: PlaylistNavigationDirection): Boolean =
-        playlistNavigationController.navigate(direction, playlistNavigationTarget)
+        playlistNavigationController.navigate(direction, playlistNavigationTarget) {
+            stopReportingCurrentItem()
+        }
 
     fun goToPreviousEpisode(): Boolean = navigatePlaylist(PlaylistNavigationDirection.Previous)
 
@@ -567,23 +559,7 @@ constructor(
                 reason == Player.PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM &&
                 player.playbackState == ExoPlayer.STATE_READY
         ) {
-            viewModelScope.launch {
-                val mediaId = player.currentMediaItem?.mediaId
-                val position = player.currentPosition
-                val duration = player.duration
-                try {
-                    repository.postPlaybackStop(
-                        UUID.fromString(mediaId),
-                        position.times(10000),
-                        position.div(duration.toFloat()).times(100).toInt(),
-                        currentPlaybackTrackReport(UUID.fromString(mediaId)),
-                    )
-                } catch (e: Exception) {
-                    Timber.e(e)
-                }
-                player.seekToNextMediaItem()
-                player.play()
-            }
+            if (navigatePlaylist(PlaylistNavigationDirection.Next)) player.play()
         }
     }
 
@@ -616,16 +592,10 @@ constructor(
                         durationMs = player.duration,
                     )
                 if (completion != null) {
-                    viewModelScope.launch {
-                        completion.stopReport?.let { stopReport ->
-                            try {
-                                postPlaybackStop(stopReport)
-                                playbackCompletionCoordinator.confirmReported(stopReport)
-                            } catch (e: Exception) {
-                                Timber.e(e)
-                            }
-                        }
-                        eventsChannel.send(PlayerEvents.NavigateBack)
+                    reportingItemId = null
+                    completion.stopReport?.let { enqueuePlaybackStop(it) }
+                    playbackReports.enqueue {
+                        viewModelScope.launch { eventsChannel.send(PlayerEvents.NavigateBack) }
                     }
                 }
             }
@@ -1040,13 +1010,16 @@ constructor(
         _uiState.update { it.copy(currentSegment = null) }
     }
 
-    private suspend fun postPlaybackStop(stopReport: PlaybackStopReport) {
-        repository.postPlaybackStop(
-            stopReport.itemId,
-            stopReport.positionTicks,
-            stopReport.playedPercentage,
-            currentPlaybackTrackReport(stopReport.itemId),
-        )
+    private fun enqueuePlaybackStop(report: PlaybackStopReport) {
+        val tracks = currentPlaybackTrackReport(report.itemId)
+        playbackReports.enqueue {
+            repository.postPlaybackStop(
+                report.itemId,
+                report.positionTicks,
+                report.playedPercentage,
+                tracks,
+            )
+        }
     }
 
     private fun currentPlaybackTrackReport(itemId: UUID) =
@@ -1112,9 +1085,9 @@ constructor(
     }
 
     fun skipSegment(segment: FindroidSegment) {
-        if (shouldSkipToNextEpisode(segment)) {
-            player.seekToNextMediaItem()
-        } else {
+        if (
+            !shouldSkipToNextEpisode(segment) || !navigatePlaylist(PlaylistNavigationDirection.Next)
+        ) {
             player.seekTo(segment.endTicks)
         }
         _uiState.update { it.copy(currentSegment = null) }

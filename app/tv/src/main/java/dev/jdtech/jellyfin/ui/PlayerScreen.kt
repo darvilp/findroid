@@ -118,6 +118,10 @@ fun PlayerScreen(
         val observer = LifecycleEventObserver { _, event ->
             lifecycle = event
             when (event) {
+                Lifecycle.Event.ON_PAUSE -> {
+                    viewModel.player.pause()
+                    viewModel.updatePlaybackProgress()
+                }
                 Lifecycle.Event.ON_STOP -> {
                     mediaSession?.release()
                     mediaSession = null
@@ -135,6 +139,15 @@ fun PlayerScreen(
             lifecycleOwner.lifecycle.removeObserver(observer)
             mediaSession?.release()
             mediaSession = null
+        }
+    }
+
+    LaunchedEffect(lifecycleOwner, viewModel) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                delay(5_000L)
+                viewModel.updatePlaybackProgress()
+            }
         }
     }
 
@@ -377,10 +390,7 @@ fun PlayerScreen(
                 },
                 update = { playerView ->
                     when (lifecycle) {
-                        Lifecycle.Event.ON_PAUSE -> {
-                            playerView.onPause()
-                            playerView.player?.pause()
-                        }
+                        Lifecycle.Event.ON_PAUSE -> playerView.onPause()
                         Lifecycle.Event.ON_RESUME -> playerView.onResume()
                         else -> Unit
                     }
