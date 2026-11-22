@@ -7,7 +7,6 @@ import dev.jdtech.jellyfin.models.FindroidChapter
 import dev.jdtech.jellyfin.models.FindroidEpisode
 import dev.jdtech.jellyfin.models.FindroidItem
 import dev.jdtech.jellyfin.models.FindroidMediaStream
-import dev.jdtech.jellyfin.models.FindroidMovie
 import dev.jdtech.jellyfin.models.FindroidSourceType
 import dev.jdtech.jellyfin.models.FindroidSources
 import dev.jdtech.jellyfin.models.InitialTrackSelection
@@ -21,20 +20,24 @@ import dev.jdtech.jellyfin.player.core.domain.models.TrickplayInfo
 import dev.jdtech.jellyfin.repository.JellyfinRepository
 import java.util.UUID
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import org.jellyfin.sdk.model.api.BaseItemKind
 import org.jellyfin.sdk.model.api.ItemFields
 import org.jellyfin.sdk.model.api.MediaStreamType
 import timber.log.Timber
 
+internal data class PreparedPlayerItem(
+    val item: PlayerItem,
+    val streams: List<FindroidMediaStream>,
+)
+
 class PlaylistManager @Inject internal constructor(private val repository: JellyfinRepository) {
-    private var startItem: FindroidItem? = null
     private var items: List<FindroidItem> = emptyList()
     private val playerItems: MutableList<PlayerItem> = mutableListOf()
     private val mediaStreamsByItem: MutableMap<UUID, List<FindroidMediaStream>> = mutableMapOf()
     private var queueAudioFingerprint: QueueTrackFingerprint? = null
     private var queueSubtitleMemory: QueueSubtitleMemory? = null
     private var queueTrackSelectionVersion: Long = 0
-    var currentItemIndex: Int = 0
 
     suspend fun getInitialItem(
         itemId: UUID,
@@ -132,93 +135,35 @@ class PlaylistManager @Inject internal constructor(private val repository: Jelly
             return null
         }
 
-        startItem = initialItem
-
-        currentItemIndex = items.indexOfFirst { it.id == initialItem.id }
-
         val playbackPosition =
             if (!startFromBeginning) initialItem.playbackPositionTicks.div(10000) else 0
-        val playerItem =
+        val prepared =
             initialItem.toPlayerItem(
                 mediaSourceIndex = mediaSourceIndex,
                 playbackPosition = playbackPosition,
                 requestedTrackSelection = initialTrackSelection,
             )
-        playerItems.add(playerItem)
-
-        return playerItem
+        registerPlayerItem(prepared)
+        return prepared.item
     }
 
-    suspend fun getPreviousPlayerItem(): PlayerItem? {
-        Timber.d("Retrieving previous player item")
-
-        val itemIndex = currentItemIndex - 1
-        val playerItem =
-            when (startItem) {
-                is FindroidMovie -> null
-                is FindroidEpisode -> {
-                    if (currentItemIndex == 0) {
-                        null
-                    } else {
-                        val item = items[itemIndex]
-                        if (playerItems.firstOrNull { it.itemId == item.id } == null) {
-                            try {
-                                item.toPlayerItem(null, 0L, requestedTrackSelection = null)
-                            } catch (e: Exception) {
-                                Timber.e("Failed to retrieve previous player item: $e")
-                                null
-                            }
-                        } else {
-                            null
-                        }
-                    }
-                }
-                else -> null
-            }
-
-        if (playerItem != null) {
-            playerItems.add(playerItem)
-        }
-
-        return playerItem
+    internal suspend fun loadAdjacentItem(
+        anchorId: UUID,
+        direction: PlaylistNavigationDirection,
+    ): PreparedPlayerItem? {
+        val anchorIndex = items.indexOfFirst { it.id == anchorId }
+        if (items.getOrNull(anchorIndex) !is FindroidEpisode) return null
+        val offset = if (direction == PlaylistNavigationDirection.Previous) -1 else 1
+        val neighbor = items.getOrNull(anchorIndex + offset) ?: return null
+        if (playerItems.any { it.itemId == neighbor.id }) return null
+        return prepareItem(neighbor)
     }
 
-    suspend fun getNextPlayerItem(): PlayerItem? {
-        Timber.d("Retrieving next player item")
-
-        val itemIndex = currentItemIndex + 1
-        val playerItem =
-            when (startItem) {
-                is FindroidMovie -> null
-                is FindroidEpisode -> {
-                    if (currentItemIndex == items.lastIndex) {
-                        null
-                    } else {
-                        val item = items[itemIndex]
-                        if (playerItems.firstOrNull { it.itemId == item.id } == null) {
-                            try {
-                                item.toPlayerItem(null, 0L, requestedTrackSelection = null)
-                            } catch (e: Exception) {
-                                Timber.e("Failed to retrieve next player item: $e")
-                                null
-                            }
-                        } else {
-                            null
-                        }
-                    }
-                }
-                else -> null
-            }
-
-        if (playerItem != null) {
-            playerItems.add(playerItem)
-        }
-
-        return playerItem
-    }
-
-    fun setCurrentMediaItemIndex(itemId: UUID) {
-        currentItemIndex = items.indexOfFirst { it.id == itemId }
+    internal fun registerPlayerItem(prepared: PreparedPlayerItem) {
+        val itemId = prepared.item.itemId
+        mediaStreamsByItem[itemId] = prepared.streams
+        playerItems.removeAll { it.itemId == itemId }
+        playerItems.add(prepared.item)
     }
 
     fun getDetailsTarget(itemId: UUID): PlaybackDetailsTarget? =
@@ -251,24 +196,22 @@ class PlaylistManager @Inject internal constructor(private val repository: Jelly
         return PlaybackTrackReport(item.mediaSourceId, audioIndex, subtitleIndex)
     }
 
-    suspend fun rebuildPlayerItem(itemId: UUID): PlayerItem? {
-        val item = items.firstOrNull { it.id == itemId } ?: return null
-        return try {
-            item
-                .toPlayerItem(
-                    mediaSourceIndex = null,
-                    playbackPosition = 0L,
-                    requestedTrackSelection = null,
-                )
-                .also { rebuilt ->
-                    playerItems.removeAll { it.itemId == itemId }
-                    playerItems.add(rebuilt)
-                }
+    internal suspend fun rebuildPlayerItem(itemId: UUID): PreparedPlayerItem? =
+        items.firstOrNull { it.id == itemId }?.let { prepareItem(it) }
+
+    private suspend fun prepareItem(item: FindroidItem): PreparedPlayerItem? =
+        try {
+            item.toPlayerItem(
+                mediaSourceIndex = null,
+                playbackPosition = 0L,
+                requestedTrackSelection = null,
+            )
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (error: Exception) {
-            Timber.e(error, "Failed to rebuild queued player item %s", itemId)
+            Timber.e(error, "Failed to load queued player item %s", item.id)
             null
         }
-    }
 
     fun rememberRuntimeTrackSelection(
         itemId: UUID,
@@ -322,7 +265,7 @@ class PlaylistManager @Inject internal constructor(private val repository: Jelly
         mediaSourceIndex: Int?,
         playbackPosition: Long,
         requestedTrackSelection: InitialTrackSelection?,
-    ): PlayerItem {
+    ): PreparedPlayerItem {
         Timber.d("Converting FindroidItem ${this.id} to PlayerItem")
         val selectionVersion = queueTrackSelectionVersion
 
@@ -358,7 +301,6 @@ class PlaylistManager @Inject internal constructor(private val repository: Jelly
                 candidateSelection.mediaSourceId,
             )
         }
-        mediaStreamsByItem[id] = mediaSource.mediaStreams
         mediaSource.mediaStreams
             .filter {
                 it.isExternal && it.type == MediaStreamType.SUBTITLE && it.path.isNullOrBlank()
@@ -409,23 +351,25 @@ class PlaylistManager @Inject internal constructor(private val repository: Jelly
                 }
                 else -> null
             }
-        return PlayerItem(
-            name = name,
-            itemId = id,
-            mediaSourceId = mediaSource.id,
-            mediaSourceUri = mediaSource.path,
-            playbackPosition = playbackPosition,
-            parentIndexNumber = if (this is FindroidEpisode) parentIndexNumber else null,
-            indexNumber = if (this is FindroidEpisode) indexNumber else null,
-            indexNumberEnd = if (this is FindroidEpisode) indexNumberEnd else null,
-            externalSubtitles = externalSubtitles,
-            chapters = chapters.toPlayerChapters(),
-            trickplayInfo = trickplayInfo,
-            initialAudioStreamIndex = resolved.initialTrackSelection?.audioStreamIndex,
-            initialSubtitleStreamIndex = resolved.initialTrackSelection?.subtitleStreamIndex,
-            defaultAudioStreamIndex = mediaSource.defaultAudioStreamIndex,
-            defaultSubtitleStreamIndex = mediaSource.defaultSubtitleStreamIndex,
-        )
+        val playerItem =
+            PlayerItem(
+                name = name,
+                itemId = id,
+                mediaSourceId = mediaSource.id,
+                mediaSourceUri = mediaSource.path,
+                playbackPosition = playbackPosition,
+                parentIndexNumber = if (this is FindroidEpisode) parentIndexNumber else null,
+                indexNumber = if (this is FindroidEpisode) indexNumber else null,
+                indexNumberEnd = if (this is FindroidEpisode) indexNumberEnd else null,
+                externalSubtitles = externalSubtitles,
+                chapters = chapters.toPlayerChapters(),
+                trickplayInfo = trickplayInfo,
+                initialAudioStreamIndex = resolved.initialTrackSelection?.audioStreamIndex,
+                initialSubtitleStreamIndex = resolved.initialTrackSelection?.subtitleStreamIndex,
+                defaultAudioStreamIndex = mediaSource.defaultAudioStreamIndex,
+                defaultSubtitleStreamIndex = mediaSource.defaultSubtitleStreamIndex,
+            )
+        return PreparedPlayerItem(playerItem, mediaSource.mediaStreams)
     }
 
     private fun hasQueueTrackMemory(): Boolean =
